@@ -1,0 +1,186 @@
+---
+name: "Scality Upload SBOM Action"
+description: "Upload an SBOM (Software Bill Of Materials) to Dependency Track."
+author: "Scality"
+branding:
+  color: blue
+  icon: shield
+inputs:
+  url:
+    description: "Dependency Track server URL"
+    required: false
+
+  api-key:
+    description: "Dependency Track API key"
+    required: false
+
+  project-sbom:
+    description: "Path to the SBOM file to upload"
+    required: true
+
+  project-sbom-list:
+    description: "Path to a text file containing a list of SBOM files to upload (one per line)"
+    required: false
+
+  project-sbom-dir:
+    description: "Directory containing SBOM files to upload as child projects"
+    required: false
+
+  project_name:
+    description: "Project name in Dependency Track"
+    required: false
+    default: ""
+
+  parent_project_name:
+    description: "Parent project name in Dependency Track (if applicable)"
+    required: false
+    default: ""
+
+  project_version:
+    description: "Project version in Dependency Track"
+    required: false
+    default: ""
+
+  parent_project_version:
+    description: "Parent project version in Dependency Track (if applicable)"
+    required: false
+    default: ""
+
+  project_description:
+    description: "Project description in Dependency Track"
+    required: false
+    default: ""
+
+  project_uuid:
+    description: "Project UUID in Dependency Track (if known)"
+    required: false
+    default: ""
+
+  project_prefix:
+    description: "Prefix to add to project name"
+    required: false
+    default: ""
+
+  project_suffix:
+    description: "Suffix to add to project name"
+    required: false
+    default: ""
+
+  project_classifier:
+    description: "Project classifier in Dependency Track"
+    required: false
+    default: "APPLICATION"
+
+  parent_project_classifier:
+    description: "Parent project classifier in Dependency Track (if applicable)"
+    required: false
+    default: "APPLICATION"
+
+  project_collection_logic:
+    description: "Project collection logic in Dependency Track"
+    required: false
+    default: "NONE"
+
+  parent_project_collection_logic:
+    description: "Parent project collection logic in Dependency Track (if applicable)"
+    required: false
+    default: "NONE"
+
+  project_tags:
+    description: "Comma-separated list of tags to apply to the project"
+    required: false
+    default: ""
+
+  is_latest:
+    description: "Set the 'latest' flag on the uploaded project version"
+    required: false
+    default: "false"
+
+  auto_detect_latest:
+    description: "Automatically detect and set the latest version flag based on semantic versioning"
+    required: false
+    default: "true"
+
+  dry_run:
+    description: "Enable dry run mode (no actual uploads, just validation and logging)"
+    required: false
+    default: "false"
+
+outputs:
+  # Dependency Track Upload Outputs
+  upload-summary:
+    description: "JSON summary of uploaded projects and versions"
+
+  projects-created:
+    description: "Number of new projects created"
+
+  projects-updated:
+    description: "Number of existing projects updated"
+
+  sboms-uploaded:
+    description: "Number of SBOM files uploaded"
+
+  latest-flags-updated:
+    description: "Number of latest flags updated"
+  
+  latest-versions:
+    description: "List of projects where latest flag was updated"
+    
+  upload-errors:
+    description: "List of any upload errors encountered"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Python 3
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+        cache: "pip"
+
+    - name: Install python deps
+      shell: bash
+      run: |
+        if [ -f "${{ github.action_path }}/requirements.txt" ]; then
+          pip install -r "${{ github.action_path }}/requirements.txt"
+        else
+          echo "No requirements.txt found; skipping Python dependencies installation."
+        fi
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+          export DEBIAN_FRONTEND=noninteractive && \
+          sudo apt-get update && \
+          sudo apt-get install --no-install-recommends -y \
+          file \
+          jq \
+          p7zip-full \
+          python3-setuptools
+
+    - name: Run the upload
+      shell: bash
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_API_KEY: ${{ inputs.api-key }}
+        INPUT_PROJECT_SBOM: ${{ inputs.project-sbom }}
+        INPUT_PROJECT_SBOM_LIST: ${{ inputs.project-sbom-list }}
+        INPUT_PROJECT_SBOM_DIR: ${{ inputs.project-sbom-dir }}
+        INPUT_PROJECT_NAME: ${{ inputs.project_name }}
+        INPUT_PARENT_PROJECT_NAME: ${{ inputs.parent_project_name }}
+        INPUT_PROJECT_UUID: ${{ inputs.project_uuid }}
+        INPUT_PROJECT_VERSION: ${{ inputs.project_version }}
+        INPUT_PARENT_PROJECT_VERSION: ${{ inputs.parent_project_version }}
+        INPUT_PROJECT_DESCRIPTION: ${{ inputs.project_description }}
+        INPUT_PROJECT_PREFIX: ${{ inputs.project_prefix }}
+        INPUT_PROJECT_SUFFIX: ${{ inputs.project_suffix }}
+        INPUT_PROJECT_CLASSIFIER: ${{ inputs.project_classifier }}
+        INPUT_PARENT_PROJECT_CLASSIFIER: ${{ inputs.parent_project_classifier }}
+        INPUT_PROJECT_COLLECTION_LOGIC: ${{ inputs.project_collection_logic }}
+        INPUT_PARENT_PROJECT_COLLECTION_LOGIC: ${{ inputs.parent_project_collection_logic }}
+        INPUT_PROJECT_TAGS: ${{ inputs.project_tags }}
+        INPUT_IS_LATEST: ${{ inputs.is_latest }}
+        INPUT_AUTO_DETECT_LATEST: ${{ inputs.auto_detect_latest }}
+        INPUT_DRY_RUN: ${{ inputs.dry_run }}
+
+      run: python3 ${{ github.action_path }}/src/main.py upload

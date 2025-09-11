@@ -1,0 +1,245 @@
+name: Pre-merge Tests
+
+on:
+  pull_request:
+    branches: []
+
+env:
+  INPUT_URL: "http://localhost:8081"
+
+jobs:
+  test-sbom-upload:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Install Docker Compose
+        run: |
+          # Add Docker's official GPG key:
+          sudo apt-get update
+          sudo apt-get install ca-certificates curl
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          # Add the repository to Apt sources:
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli docker-compose-plugin jq
+
+      - name: Start Dependency Track
+        run: |
+          # Start DT with the official docker compose but use host networking for easier access
+          cd tests/docker      
+          docker compose -f docker-compose.yml up -d
+
+      - name: Wait for Dependency Track
+        run: |
+          echo "⏳ Waiting for Dependency Track to be fully ready..."
+          
+          # Wait for health check to pass
+          timeout 600 bash -c '
+            until curl -f $INPUT_URL/api/version >/dev/null 2>&1; do
+              echo "Waiting for Dependency Track API... ($(date))"
+              sleep 15
+            done
+          '
+          
+          # Give extra time for full initialization
+          echo "✅ API responding, waiting for full initialization..."
+          sleep 60
+          
+          # Verify API is ready
+          curl -v $INPUT_URL/api/version
+
+      - name: Setup Test Environment
+        run: |
+          bash .github/scripts/setup-ci.sh
+          # Export API key to environment for subsequent steps
+          if [ -f /tmp/api_key.txt ]; then
+            API_KEY=$(cat /tmp/api_key.txt)
+            echo "INPUT_API_KEY=$API_KEY" >> $GITHUB_ENV
+            echo "✅ API key exported to environment"
+          else
+            echo "❌ No API key file found"
+            exit 1
+          fi
+
+      - name: Test CLI Help
+        run: |
+          echo "🔧 Testing CLI help..."
+          python3 src/main.py --help
+
+      - name: Test Input Validation
+        run: |
+          echo "✅ Testing input validation..."
+          python3 src/main.py validate-inputs
+
+      - name: Test Version Functions
+        run: |
+          echo "🔢 Testing version functions..."
+          python3 tests/test_version.py
+
+      - name: Test Single SBOM Upload
+        env:
+          INPUT_PROJECT_SBOM: "tests/single_sbom/nginx_12.9.1.json"
+          INPUT_PROJECT_NAME: "test-nginx"
+          INPUT_PROJECT_VERSION: "12.9.1"
+          INPUT_IS_LATEST: "true"
+        run: |
+          echo "🏃 Testing single SBOM upload..."
+          python3 src/main.py upload
+
+      - name: Verify Single SBOM Upload
+        env:
+          INPUT_PROJECT_NAME: "test-nginx"
+          INPUT_PROJECT_VERSION: "12.9.1"
+        run: |
+          echo "🔍 Verifying single SBOM upload..."
+          response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=$INPUT_PROJECT_NAME&version=$INPUT_PROJECT_VERSION")
+          if echo "$response" | jq -e . >/dev/null 2>&1; then
+            name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
+            version=$(echo "$response" | jq -r '.version // "NO VERSION"')
+            echo "  ✅ Found: $name v$version"
+          else
+            echo "  ❌ Failed - Response: $response"
+            exit 1
+          fi
+
+      - name: Test Multiple SBOM Upload with Parent Project
+        env:
+          INPUT_PROJECT_SBOM_DIR: "tests/multiple_sbom"
+          INPUT_PROJECT_PREFIX: "test-multi-"
+          INPUT_PARENT_PROJECT_NAME: "test-multi-parent"
+          INPUT_PARENT_PROJECT_VERSION: "6.6.6"
+          INPUT_PARENT_PROJECT_CLASSIFIER: "MACHINE_LEARNING_MODEL"
+          INPUT_PARENT_PROJECT_COLLECTION_LOGIC: "AGGREGATE_DIRECT_CHILDREN"
+        run: |
+          echo "🏃 Testing multiple SBOM upload with parent project..."
+          python3 src/main.py upload
+
+      - name: Verify Multiple SBOM Uploads
+        env:
+          NGINX_VERSION: "1.29.1"
+          PROMETHEUS_VERSION: "v3.5.0"
+          PROMETHEUS_OPERATOR_VERSION: "v0.85.0"
+        run: |
+          echo "🔍 Verifying multiple SBOM uploads..."
+          
+          echo "  Checking parent project..."
+          response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-test-multi-parent&version=6.6.6")
+          if echo "$response" | jq -e . >/dev/null 2>&1; then
+            name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
+            version=$(echo "$response" | jq -r '.version // "NO VERSION"')
+            classifier=$(echo "$response" | jq -r '.classifier // "NO CLASSIFIER"')
+            collection_logic=$(echo "$response" | jq -r '.collectionLogic // "NO COLLECTION LOGIC"')
+            echo "    ✅ Found parent: $name v$version ($classifier, $collection_logic)"
+          else
+            echo "    ❌ Failed - Response: $response"
+            exit 1
+          fi
+          
+          echo "  Checking child projects..."
+          for project_name in "test-multi-nginx" "test-multi-quay.io/prometheus/prometheus" "test-multi-quay.io/prometheus-operator/prometheus-operator"; do
+            case $project_name in
+              "test-multi-nginx") version=$NGINX_VERSION ;;
+              "test-multi-quay.io/prometheus/prometheus") version=$PROMETHEUS_VERSION ;;
+              "test-multi-quay.io/prometheus-operator/prometheus-operator") version=$PROMETHEUS_OPERATOR_VERSION ;;
+            esac
+            
+            response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=$project_name&version=$version")
+            if echo "$response" | jq -e . >/dev/null 2>&1; then
+              name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
+              version_found=$(echo "$response" | jq -r '.version // "NO VERSION"')
+              echo "    ✅ Found: $name v$version_found"
+            else
+              echo "    ❌ Failed for $project_name - Response: $response"
+              exit 1
+            fi
+          done
+
+      - name: Test Nested Hierarchy Upload
+        env:
+          INPUT_PROJECT_SBOM_DIR: "tests/multiple_sbom"
+          INPUT_PARENT_PROJECT_NAME: "test-multi-app"
+          INPUT_PARENT_PROJECT_VERSION: "1.0.0"
+          INPUT_PARENT_PROJECT_CLASSIFIER: "APPLICATION"
+          INPUT_PARENT_PROJECT_COLLECTION_LOGIC: "AGGREGATE_LATEST_VERSION_CHILDREN"
+        run: |
+          echo "🏃 Testing nested hierarchy upload..."
+          # Clear any prefix from previous test
+          unset INPUT_PROJECT_PREFIX
+          python3 src/main.py upload
+
+      - name: Verify Nested Hierarchy Upload
+        run: |
+          echo "🔍 Verifying nested hierarchy upload..."
+          
+          echo "  Checking parent project test-multi-app..."
+          response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-app&version=1.0.0")
+          if echo "$response" | jq -e . >/dev/null 2>&1; then
+            name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
+            version=$(echo "$response" | jq -r '.version // "NO VERSION"')
+            echo "    ✅ Found parent: $name v$version"
+            
+            # Get parent UUID for checking children
+            parent_uuid=$(echo "$response" | jq -r '.uuid // ""')
+            if [ -n "$parent_uuid" ] && [ "$parent_uuid" != "null" ]; then
+              echo "  Parent UUID: $parent_uuid"
+              echo "  Checking child projects..."
+              children_response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/$parent_uuid/children")
+              if echo "$children_response" | jq -e . >/dev/null 2>&1; then
+                child_count=$(echo "$children_response" | jq 'length')
+                echo "    ✅ Found $child_count child projects:"
+                echo "$children_response" | jq -r '.[].name' | sed 's/^/      - /'
+              else
+                echo "    ❌ Failed to get children - Response: $children_response"
+                exit 1
+              fi
+            else
+              echo "    ❌ Invalid parent UUID"
+              exit 1
+            fi
+          else
+            echo "    ❌ Parent not found - Response: $response"
+            exit 1
+          fi
+
+      - name: Test Summary
+        run: |
+          echo ""
+          echo "🏆 Test Summary:"
+          echo "  Single SBOM Upload: ✅"
+          echo "  Multiple SBOM Upload with Parent: ✅" 
+          echo "  Nested Hierarchy Upload: ✅"
+          echo ""
+          echo "✅ All workflow components tested successfully!"
+          echo "🚀 Ready for CI/CD pipeline"
+
+      - name: Check Docker Logs (Debug)
+        if: failure()
+        run: |
+          echo "🔍 Dependency Track logs:"
+          cd tests/docker
+          docker compose -f docker-compose.yml logs apiserver --tail=100
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Cleaning up..."
+          cd tests/docker
+          docker compose -f docker-compose.yml down -v || true
