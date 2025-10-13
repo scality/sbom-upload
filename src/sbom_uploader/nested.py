@@ -17,9 +17,10 @@ class NestedUploader(SBOMUploader):  # pylint: disable=too-few-public-methods
         sbom_path = _determine_sbom_source_path(config)
 
         # Upload nested hierarchy
-        parent_name_transformed = config.apply_name_transformations(config.parent_name)
+        # Note: Parent project name should not have prefix/suffix transformations applied
+        # Only child projects should use the project_prefix/project_suffix
         result = services.sbom_service.upload_nested_hierarchy(
-            parent_name_transformed,
+            config.parent_name,
             config.parent_version,
             sbom_path,
             config.parent_classifier,
