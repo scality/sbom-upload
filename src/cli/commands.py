@@ -8,12 +8,12 @@ import click
 from config.config import get_config, AppConfig
 from domain.exceptions import SBOMUploadError, ConfigurationError
 from services.container import Services
-from services.upload import (
-    SBOMUploader,
-    SingleSBOMUploader,
-    ListFileUploader,
+from services.upload import SBOMUploader
+from sbom_uploader import (
+    SingularUploader,
+    ListUploader,
     DirectoryUploader,
-    NestedHierarchyUploader,
+    NestedUploader,
 )
 
 # Configure logging
@@ -167,16 +167,16 @@ def _get_upload_strategy(config: AppConfig) -> SBOMUploader:
         click.ClickException: If no valid upload mode is found
     """
     if config.parent_name:
-        return NestedHierarchyUploader()
+        return NestedUploader()
 
     if config.project_sbom_list:
-        return ListFileUploader()
+        return ListUploader()
 
     if config.project_sbom_dir:
         return DirectoryUploader()
 
     if config.project_sbom:
-        return SingleSBOMUploader()
+        return SingularUploader()
 
     raise click.ClickException("No SBOM input provided")
 

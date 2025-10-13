@@ -153,10 +153,10 @@ graph TD
         TEST --> CONN_TEST[ConnectionService.test_connection]
         VALIDATE --> CONFIG_VALIDATE[Config.validate_for_upload]
         UPLOAD --> STRATEGY_DETECT[Strategy Pattern - Auto-detect upload mode]
-        STRATEGY_DETECT --> SINGLE[SingleSBOMUploader]
+        STRATEGY_DETECT --> SINGLE[SingularUploader]
         STRATEGY_DETECT --> DIRECTORY[DirectoryUploader]
-        STRATEGY_DETECT --> LIST[ListFileUploader]
-        STRATEGY_DETECT --> HIERARCHY[NestedHierarchyUploader]
+        STRATEGY_DETECT --> LIST[ListUploader]
+        STRATEGY_DETECT --> HIERARCHY[NestedUploader]
         SINGLE --> SBOM_UPLOAD[SBOMService.upload_single_sbom]
         UPLOAD_AUTO --> SBOM_UPLOAD
         UPLOAD_NESTED --> SBOM_NESTED[SBOMService.upload_nested_hierarchy]
