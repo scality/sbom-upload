@@ -117,6 +117,56 @@ database/sbom.json
     is_latest: ${{ github.ref == 'refs/heads/main' }}
 ```
 
+### Hierarchy Generation from Nested SBOM Structure
+
+For complex projects with nested SBOM structures, use the hierarchy generation feature:
+
+```yaml
+- name: Generate and Upload SBOM Hierarchy
+  uses: scality/sbom-upload@v1
+  with:
+    url: ${{ vars.DEPENDENCY_TRACK_URL }}
+    api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
+    generate_hierarchy: 'true'
+    hierarchy_input_dir: 'sbom-artifacts'
+    hierarchy_output_file: 'generated-hierarchy.json'
+    hierarchy_upload: 'true'
+```
+
+This will:
+1. Scan the `sbom-artifacts` directory for nested SBOM files
+2. Generate a 3-level hierarchy configuration:
+   - Level 1: `meta_{name}` (from merged SBOM)
+   - Level 2: `{name}_{version}` (from merged SBOM)
+   - Level 3: Individual components with UUID suffixes for uniqueness
+3. Upload the hierarchy directly to Dependency Track
+4. Save the configuration to `generated-hierarchy.json`
+
+**Directory Structure Example:**
+```
+sbom-artifacts/
+├── project_4.0.3_merged_sbom.json
+├── project_4.0.3_sbom.json
+├── project-base/
+│   ├── project_base_4.0.3_merged_sbom.json
+│   ├── component1_1.0.0_sbom.json
+│   └── component2_2.0.0_sbom.json
+└── nginx/
+    ├── nginx_4.0.8_merged_sbom.json
+    └── component3_3.0.0_sbom.json
+```
+
+**Hierarchy Generation Only (without upload):**
+```yaml
+- name: Generate SBOM Hierarchy Configuration
+  uses: scality/sbom-upload@v1
+  with:
+    generate_hierarchy: 'true'
+    hierarchy_input_dir: 'sbom-artifacts'
+    hierarchy_output_file: 'hierarchy-config.json'
+    hierarchy_upload: 'false'
+```
+
 ## 🖥️ CLI Usage
 
 ### Installation & Setup
@@ -184,6 +234,23 @@ python3 src/main.py upload
 ```bash
 # Upload using a JSON hierarchy configuration file
 export INPUT_PROJECT_HIERARCHY_CONFIG="tests/hierarchy-example.json"
+python3 src/main.py upload
+```
+
+### Generate Hierarchy Configuration
+
+```bash
+# Generate hierarchy JSON from nested SBOM directory structure
+python3 src/main.py generate-hierarchy -i tests/project
+
+# Save generated hierarchy to file
+python3 src/main.py generate-hierarchy -i tests/project -o project-hierarchy.json
+
+# Generate and upload directly to Dependency Track (recommended)
+python3 src/main.py generate-hierarchy -i tests/project --upload
+
+# Use generated hierarchy for upload (alternative method)
+export INPUT_PROJECT_HIERARCHY_CONFIG="project-hierarchy.json"
 python3 src/main.py upload
 ```
 
@@ -408,3 +475,88 @@ print(f'Latest version: {get_latest_version(versions)}')
 ❌ Invalid collection logic: INVALID_VALUE
 ```
 **Solution**: Use valid values: `NONE`, `AGGREGATE_LATEST_VERSION_CHILDREN`, `AGGREGATE_ALL_VERSION_CHILDREN`
+
+## 🏗️ Automatic Hierarchy Generation
+
+The action can automatically generate hierarchy configurations from nested directory structures containing SBOM files.
+
+### Supported Directory Structure
+
+```
+project-root/
+├── project_1.0.0_merged_sbom.json          # Top-level metapp
+├── component-a/
+│   ├── component_a_1.2.0_merged_sbom.json  # Child application  
+│   ├── service1_1.0.0_sbom.json            # Leaf component
+│   └── service2_1.1.0_sbom.json            # Leaf component
+└── component-b/
+    ├── component_b_2.0.0_merged_sbom.json  # Child application
+    ├── api_2.0.0_sbom.json                 # Leaf component
+    └── ui_1.5.0_sbom.json                  # Leaf component
+```
+
+### Naming Convention Requirements
+
+For automatic detection to work, SBOM files must follow these naming patterns:
+
+- **Merged SBOMs** (applications with children): `name_version_merged_sbom.json`
+- **Leaf SBOMs** (individual components): `name_version_sbom.json`
+
+### Hierarchy Generation Rules
+
+1. **Top-level metapps**: Created from `*_merged_sbom.json` files in the root directory
+2. **Child applications**: Created from `*_merged_sbom.json` files in subdirectories  
+3. **Leaf components**: Created from `*_sbom.json` files (non-merged) in any directory
+4. **Collection logic**: 
+   - Metapps: `AGGREGATE_LATEST_VERSION_CHILDREN`
+   - Child applications: `AGGREGATE_DIRECT_CHILDREN`
+   - Leaf components: `NONE`
+
+### Example Usage
+
+```bash
+# Generate hierarchy from project test structure
+python3 src/main.py generate-hierarchy -i tests/project
+
+# Generate and upload directly (recommended - avoids configuration errors)
+python3 src/main.py generate-hierarchy -i tests/project --upload
+
+# Alternative: Save to file and use for upload
+python3 src/main.py generate-hierarchy -i tests/project -o project-hierarchy.json
+export INPUT_PROJECT_HIERARCHY_CONFIG="project-hierarchy.json"
+python3 src/main.py upload
+```
+
+### Generated Configuration Example
+
+```json
+{
+  "project": {
+    "version": "4.0.3",
+    "collection_logic": "AGGREGATE_LATEST_VERSION_CHILDREN",
+    "classifier": "APPLICATION",
+    "tags": ["project", "metapp"],
+    "sbom_file": "project/project_4.0.3_merged_sbom.json",
+    "children": [
+      {
+        "name": "project_base", 
+        "version": "4.0.3",
+        "collection_logic": "AGGREGATE_DIRECT_CHILDREN",
+        "classifier": "APPLICATION",
+        "tags": ["project_base"],
+        "sbom_file": "project/project-base/project_base_4.0.3_merged_sbom.json",
+        "children": [
+          {
+            "name": "postgres",
+            "version": "17.4-alpine3.21",
+            "collection_logic": "NONE", 
+            "classifier": "APPLICATION",
+            "tags": ["postgres"],
+            "sbom_file": "project/project-base/postgres_17.4-alpine3.21_sbom.json"
+          }
+        ]
+      }
+    ]
+  }
+}
+```

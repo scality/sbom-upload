@@ -10,10 +10,12 @@ A GitHub Action and CLI tool for uploading Software Bill of Materials (SBOM) fil
 - 🚀 **GitHub Action Integration** - Seamless CI/CD pipeline integration
 - 📁 **Multiple Upload Methods** - Single SBOMs, batch uploads, or custom hierarchies  
 - 🏗️ **Hierarchical Projects** - Create parent/child project relationships
+- 🎨 **Auto Hierarchy Generation** - Generate 3-level hierarchies from nested SBOM structures
 - 🔄 **Version Management** - Semantic version comparison and latest detection
 - 🧪 **Local Testing** - CLI for development and debugging
 - 🎯 **Auto-Detection** - Extract project info from SBOM metadata
 - 🔐 **Secure** - API key authentication with proper error handling
+- 🆔 **Unique Naming** - UUID suffixes prevent project name conflicts
 
 ## 🚀 Quick Start
 
@@ -90,6 +92,7 @@ pip install -r requirements.txt
 | Single SBOM Upload | ✅ | ✅ | [Examples](docs/USAGE_EXAMPLES.md#basic-single-sbom-upload) |
 | Multiple SBOMs | ✅ | ✅ | [Examples](docs/USAGE_EXAMPLES.md#multiple-sboms-from-file-list) |
 | Nested Projects | ✅ | ✅ | [Examples](docs/USAGE_EXAMPLES.md#advanced-configuration-with-custom-hierarchy) |
+| Auto Hierarchy Generation | ✅ | ✅ | [Usage Examples](docs/USAGE_EXAMPLES.md#hierarchy-generation-from-nested-sbom-structure) |
 | Custom Hierarchies | ❌ | ✅ | [Hierarchy Config](docs/HIERARCHY_CONFIG.md) |
 | Version Detection | ✅ | ✅ | [Usage Examples](docs/USAGE_EXAMPLES.md#with-version-detection) |
 | Dry Run Testing | ❌ | ✅ | [CLI Reference](docs/CLI.md) |

@@ -2,6 +2,36 @@
 
 A simple, pythonic CLI for testing and uploading SBOMs to Dependency Track.
 
+#### Validate Configuration
+Validate all GitHub Action inputs:
+```bash
+python3 src/main.py validate-inputs
+```
+
+#### Generate Hierarchy Configuration
+Generate hierarchical configuration JSON from nested SBOM directory structures:
+```bash
+# Generate hierarchy and print to stdout
+python3 src/main.py generate-hierarchy -i tests/project]
+
+# Save generated hierarchy to file
+python3 src/main.py generate-hierarchy -i tests/project -o project-hierarchy.json
+
+# Get help for the command
+python3 src/main.py generate-hierarchy --help
+```
+
+This command automatically scans directory structures containing SBOM files and generates hierarchy configurations based on:
+- Files ending in `*_merged_sbom.json` become applications with children
+- Files ending in `*_sbom.json` become leaf components
+- Directory structure determines parent-child relationships
+
+#### Help
+Get help and see all available commands:
+```bash
+python3 src/main.py --help
+```esting and uploading SBOMs to Dependency Track.
+
 ## Usage
 
 ### Prerequisites

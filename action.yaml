@@ -106,6 +106,27 @@ inputs:
     required: false
     default: "false"
 
+  # Hierarchy Generation Inputs
+  generate_hierarchy:
+    description: "Generate hierarchical configuration from nested SBOM directory structure"
+    required: false
+    default: "false"
+
+  hierarchy_input_dir:
+    description: "Input directory containing nested SBOM structure for hierarchy generation"
+    required: false
+    default: ""
+
+  hierarchy_output_file:
+    description: "Output file path for generated hierarchy configuration JSON"
+    required: false
+    default: ""
+
+  hierarchy_upload:
+    description: "Automatically upload the generated hierarchy to Dependency Track"
+    required: false
+    default: "false"
+
 outputs:
   # Dependency Track Upload Outputs
   upload-summary:
@@ -128,6 +149,16 @@ outputs:
     
   upload-errors:
     description: "List of any upload errors encountered"
+
+  # Hierarchy Generation Outputs
+  hierarchy-config-file:
+    description: "Path to the generated hierarchy configuration file"
+
+  hierarchy-projects-count:
+    description: "Total number of projects in the generated hierarchy"
+
+  hierarchy-top-level-projects:
+    description: "Number of top-level projects in the hierarchy"
 
 runs:
   using: "composite"
@@ -182,5 +213,14 @@ runs:
         INPUT_IS_LATEST: ${{ inputs.is_latest }}
         INPUT_AUTO_DETECT_LATEST: ${{ inputs.auto_detect_latest }}
         INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        INPUT_GENERATE_HIERARCHY: ${{ inputs.generate_hierarchy }}
+        INPUT_HIERARCHY_INPUT_DIR: ${{ inputs.hierarchy_input_dir }}
+        INPUT_HIERARCHY_OUTPUT_FILE: ${{ inputs.hierarchy_output_file }}
+        INPUT_HIERARCHY_UPLOAD: ${{ inputs.hierarchy_upload }}
 
-      run: python3 ${{ github.action_path }}/src/main.py upload
+      run: |
+        if [ "${{ inputs.generate_hierarchy }}" = "true" ]; then
+          python3 ${{ github.action_path }}/src/main.py generate-hierarchy-action
+        else
+          python3 ${{ github.action_path }}/src/main.py upload
+        fi
