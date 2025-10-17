@@ -85,7 +85,7 @@ python3 src/main.py upload
 if [ "$INPUT_DRY_RUN" != "true" ]; then
     echo "🔍 Verifying multiple SBOM uploads..."
     echo "  Checking parent project test-multi-parent..."
-    response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-test-multi-parent&version=6.6.6")
+    response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-parent&version=6.6.6")
     if echo "$response" | jq -e . >/dev/null 2>&1; then
         name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
         version=$(echo "$response" | jq -r '.version // "NO VERSION"')

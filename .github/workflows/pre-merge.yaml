@@ -128,11 +128,14 @@ jobs:
           INPUT_PARENT_PROJECT_VERSION: "6.6.6"
           INPUT_PARENT_PROJECT_CLASSIFIER: "MACHINE_LEARNING_MODEL"
           INPUT_PARENT_PROJECT_COLLECTION_LOGIC: "AGGREGATE_DIRECT_CHILDREN"
+          NGINX_VERSION: "1.29.1"
+          PROMETHEUS_VERSION: "v3.5.0"
+          PROMETHEUS_OPERATOR_VERSION: "v0.85.0"
         run: |
           echo "🏃 Testing multiple SBOM upload with parent project..."
           python3 src/main.py upload
 
-      - name: Verify Multiple SBOM Uploads
+      - name: Verify Multiple SBOM Uploads with Parent Project
         env:
           NGINX_VERSION: "1.29.1"
           PROMETHEUS_VERSION: "v3.5.0"
@@ -140,8 +143,8 @@ jobs:
         run: |
           echo "🔍 Verifying multiple SBOM uploads..."
           
-          echo "  Checking parent project..."
-          response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-test-multi-parent&version=6.6.6")
+          echo "  Checking parent project test-multi-parent..."
+          response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-parent&version=6.6.6")
           if echo "$response" | jq -e . >/dev/null 2>&1; then
             name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
             version=$(echo "$response" | jq -r '.version // "NO VERSION"')
@@ -153,24 +156,38 @@ jobs:
             exit 1
           fi
           
-          echo "  Checking child projects..."
-          for project_name in "test-multi-nginx" "test-multi-quay.io/prometheus/prometheus" "test-multi-quay.io/prometheus-operator/prometheus-operator"; do
-            case $project_name in
-              "test-multi-nginx") version=$NGINX_VERSION ;;
-              "test-multi-quay.io/prometheus/prometheus") version=$PROMETHEUS_VERSION ;;
-              "test-multi-quay.io/prometheus-operator/prometheus-operator") version=$PROMETHEUS_OPERATOR_VERSION ;;
-            esac
-            
-            response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=$project_name&version=$version")
-            if echo "$response" | jq -e . >/dev/null 2>&1; then
-              name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
-              version_found=$(echo "$response" | jq -r '.version // "NO VERSION"')
-              echo "    ✅ Found: $name v$version_found"
-            else
-              echo "    ❌ Failed for $project_name - Response: $response"
-              exit 1
-            fi
-          done
+          echo "  Checking test-multi-nginx..."
+          response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-nginx&version=$NGINX_VERSION")
+          if echo "$response" | jq -e . >/dev/null 2>&1; then
+            name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
+            version=$(echo "$response" | jq -r '.version // "NO VERSION"')
+            echo "    ✅ Found: $name v$version"
+          else
+            echo "    ❌ Failed - Response: $response"
+            exit 1
+          fi
+          
+          echo "  Checking test-multi-quay.io/prometheus/prometheus..."
+          response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-quay.io/prometheus/prometheus&version=$PROMETHEUS_VERSION")
+          if echo "$response" | jq -e . >/dev/null 2>&1; then
+            name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
+            version=$(echo "$response" | jq -r '.version // "NO VERSION"')
+            echo "    ✅ Found: $name v$version"
+          else
+            echo "    ❌ Failed - Response: $response"
+            exit 1
+          fi
+          
+          echo "  Checking test-multi-quay.io/prometheus-operator/prometheus-operator..."
+          response=$(curl -s -H "X-API-Key: $INPUT_API_KEY" "$INPUT_URL/api/v1/project/lookup?name=test-multi-quay.io/prometheus-operator/prometheus-operator&version=$PROMETHEUS_OPERATOR_VERSION")
+          if echo "$response" | jq -e . >/dev/null 2>&1; then
+            name=$(echo "$response" | jq -r '.name // "NOT FOUND"')
+            version=$(echo "$response" | jq -r '.version // "NO VERSION"')
+            echo "    ✅ Found: $name v$version"
+          else
+            echo "    ❌ Failed - Response: $response"
+            exit 1
+          fi
 
       - name: Test Nested Hierarchy Upload
         env:
