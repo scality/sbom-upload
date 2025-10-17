@@ -108,20 +108,20 @@ pip install -r requirements.txt
 | `project-sbom` | ✅* | Path to single SBOM file | `dist/sbom.json` |
 | `project-sbom-list` | ✅* | Path to file with SBOM list | `sbom-files.txt` |
 | `project-sbom-dir` | ✅* | Directory containing SBOMs | `dist/sboms/` |
-| `project_name` | ❌ | Override project name | `my-application` |
-| `project_version` | ❌ | Override project version | `1.2.3` |
-| `parent_project_name` | ❌ | Parent project name | `main-app` |
-| `parent_project_version` | ❌ | Parent project version | `2.0.0` |
-| `project_classifier` | ❌ | Project type classifier | `APPLICATION` |
-| `parent_project_classifier` | ❌ | Parent project classifier | `APPLICATION` |
-| `project_collection_logic` | ❌ | Collection logic for children | `AGGREGATE_DIRECT_CHILDREN` |
-| `parent_project_collection_logic` | ❌ | Parent collection logic | `AGGREGATE_DIRECT_CHILDREN` |
-| `is_latest` | ❌ | Mark as latest version | `true` |
-| `auto_detect_latest` | ❌ | Auto-detect latest flag | `true` |
-| `dry_run` | ❌ | Validate without uploading | `true` |
-| `project_prefix` | ❌ | Prefix for project names | `ci-` |
-| `project_suffix` | ❌ | Suffix for project names | `-prod` |
-| `project_tags` | ❌ | Comma-separated tags | `production,ci-cd` |
+| `project-name` | ❌ | Override project name | `my-application` |
+| `project-version` | ❌ | Override project version | `1.2.3` |
+| `parent-project-name` | ❌ | Parent project name | `main-app` |
+| `parent-project-version` | ❌ | Parent project version | `2.0.0` |
+| `project-classifier` | ❌ | Project type classifier | `APPLICATION` |
+| `parent-project-classifier` | ❌ | Parent project classifier | `APPLICATION` |
+| `project-collection-logic` | ❌ | Collection logic for children | `AGGREGATE_DIRECT_CHILDREN` |
+| `parent-project-collection-logic` | ❌ | Parent collection logic | `AGGREGATE_DIRECT_CHILDREN` |
+| `is-latest` | ❌ | Mark as latest version | `true` |
+| `auto-detect-latest` | ❌ | Auto-detect latest flag | `true` |
+| `dry-run` | ❌ | Validate without uploading | `true` |
+| `project-prefix` | ❌ | Prefix for project names | `ci-` |
+| `project-suffix` | ❌ | Suffix for project names | `-prod` |
+| `project-tags` | ❌ | Comma-separated tags | `production,ci-cd` |
 
 *One of `project-sbom`, `project-sbom-list`, or `project-sbom-dir` is required.
 

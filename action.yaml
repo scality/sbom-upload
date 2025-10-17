@@ -26,103 +26,103 @@ inputs:
     description: "Directory containing SBOM files to upload as child projects"
     required: false
 
-  project_name:
+  project-name:
     description: "Project name in Dependency Track"
     required: false
     default: ""
 
-  parent_project_name:
+  parent-project-name:
     description: "Parent project name in Dependency Track (if applicable)"
     required: false
     default: ""
 
-  project_version:
+  project-version:
     description: "Project version in Dependency Track"
     required: false
     default: ""
 
-  parent_project_version:
+  parent-project-version:
     description: "Parent project version in Dependency Track (if applicable)"
     required: false
     default: ""
 
-  project_description:
+  project-description:
     description: "Project description in Dependency Track"
     required: false
     default: ""
 
-  project_uuid:
+  project-uuid:
     description: "Project UUID in Dependency Track (if known)"
     required: false
     default: ""
 
-  project_prefix:
+  project-prefix:
     description: "Prefix to add to project name"
     required: false
     default: ""
 
-  project_suffix:
+  project-suffix:
     description: "Suffix to add to project name"
     required: false
     default: ""
 
-  project_classifier:
+  project-classifier:
     description: "Project classifier in Dependency Track"
     required: false
     default: "APPLICATION"
 
-  parent_project_classifier:
+  parent-project-classifier:
     description: "Parent project classifier in Dependency Track (if applicable)"
     required: false
     default: "APPLICATION"
 
-  project_collection_logic:
+  project-collection-logic:
     description: "Project collection logic in Dependency Track"
     required: false
     default: "NONE"
 
-  parent_project_collection_logic:
+  parent-project-collection-logic:
     description: "Parent project collection logic in Dependency Track (if applicable)"
     required: false
     default: "NONE"
 
-  project_tags:
+  project-tags:
     description: "Comma-separated list of tags to apply to the project"
     required: false
     default: ""
 
-  is_latest:
+  is-latest:
     description: "Set the 'latest' flag on the uploaded project version"
     required: false
     default: "false"
 
-  auto_detect_latest:
+  auto-detect-latest:
     description: "Automatically detect and set the latest version flag based on semantic versioning"
     required: false
     default: "true"
 
-  dry_run:
+  dry-run:
     description: "Enable dry run mode (no actual uploads, just validation and logging)"
     required: false
     default: "false"
 
   # Hierarchy Generation Inputs
-  generate_hierarchy:
+  generate-hierarchy:
     description: "Generate hierarchical configuration from nested SBOM directory structure"
     required: false
     default: "false"
 
-  hierarchy_input_dir:
+  hierarchy-input-dir:
     description: "Input directory containing nested SBOM structure for hierarchy generation"
     required: false
     default: ""
 
-  hierarchy_output_file:
+  hierarchy-output-file:
     description: "Output file path for generated hierarchy configuration JSON"
     required: false
     default: ""
 
-  hierarchy_upload:
+  hierarchy-upload:
     description: "Automatically upload the generated hierarchy to Dependency Track"
     required: false
     default: "false"
@@ -197,29 +197,29 @@ runs:
         INPUT_PROJECT_SBOM: ${{ inputs.project-sbom }}
         INPUT_PROJECT_SBOM_LIST: ${{ inputs.project-sbom-list }}
         INPUT_PROJECT_SBOM_DIR: ${{ inputs.project-sbom-dir }}
-        INPUT_PROJECT_NAME: ${{ inputs.project_name }}
-        INPUT_PARENT_PROJECT_NAME: ${{ inputs.parent_project_name }}
-        INPUT_PROJECT_UUID: ${{ inputs.project_uuid }}
-        INPUT_PROJECT_VERSION: ${{ inputs.project_version }}
-        INPUT_PARENT_PROJECT_VERSION: ${{ inputs.parent_project_version }}
-        INPUT_PROJECT_DESCRIPTION: ${{ inputs.project_description }}
-        INPUT_PROJECT_PREFIX: ${{ inputs.project_prefix }}
-        INPUT_PROJECT_SUFFIX: ${{ inputs.project_suffix }}
-        INPUT_PROJECT_CLASSIFIER: ${{ inputs.project_classifier }}
-        INPUT_PARENT_PROJECT_CLASSIFIER: ${{ inputs.parent_project_classifier }}
-        INPUT_PROJECT_COLLECTION_LOGIC: ${{ inputs.project_collection_logic }}
-        INPUT_PARENT_PROJECT_COLLECTION_LOGIC: ${{ inputs.parent_project_collection_logic }}
-        INPUT_PROJECT_TAGS: ${{ inputs.project_tags }}
-        INPUT_IS_LATEST: ${{ inputs.is_latest }}
-        INPUT_AUTO_DETECT_LATEST: ${{ inputs.auto_detect_latest }}
-        INPUT_DRY_RUN: ${{ inputs.dry_run }}
-        INPUT_GENERATE_HIERARCHY: ${{ inputs.generate_hierarchy }}
-        INPUT_HIERARCHY_INPUT_DIR: ${{ inputs.hierarchy_input_dir }}
-        INPUT_HIERARCHY_OUTPUT_FILE: ${{ inputs.hierarchy_output_file }}
-        INPUT_HIERARCHY_UPLOAD: ${{ inputs.hierarchy_upload }}
+        INPUT_PROJECT_NAME: ${{ inputs.project-name }}
+        INPUT_PARENT_PROJECT_NAME: ${{ inputs.parent-project-name }}
+        INPUT_PROJECT_UUID: ${{ inputs.project-uuid }}
+        INPUT_PROJECT_VERSION: ${{ inputs.project-version }}
+        INPUT_PARENT_PROJECT_VERSION: ${{ inputs.parent-project-version }}
+        INPUT_PROJECT_DESCRIPTION: ${{ inputs.project-description }}
+        INPUT_PROJECT_PREFIX: ${{ inputs.project-prefix }}
+        INPUT_PROJECT_SUFFIX: ${{ inputs.project-suffix }}
+        INPUT_PROJECT_CLASSIFIER: ${{ inputs.project-classifier }}
+        INPUT_PARENT_PROJECT_CLASSIFIER: ${{ inputs.parent-project-classifier }}
+        INPUT_PROJECT_COLLECTION_LOGIC: ${{ inputs.project-collection-logic }}
+        INPUT_PARENT_PROJECT_COLLECTION_LOGIC: ${{ inputs.parent-project-collection-logic }}
+        INPUT_PROJECT_TAGS: ${{ inputs.project-tags }}
+        INPUT_IS_LATEST: ${{ inputs.is-latest }}
+        INPUT_AUTO_DETECT_LATEST: ${{ inputs.auto-detect-latest }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_GENERATE_HIERARCHY: ${{ inputs.generate-hierarchy }}
+        INPUT_HIERARCHY_INPUT_DIR: ${{ inputs.hierarchy-input-dir }}
+        INPUT_HIERARCHY_OUTPUT_FILE: ${{ inputs.hierarchy-output-file }}
+        INPUT_HIERARCHY_UPLOAD: ${{ inputs.hierarchy-upload }}
 
       run: |
-        if [ "${{ inputs.generate_hierarchy }}" = "true" ]; then
+        if [ "${{ inputs.generate-hierarchy }}" = "true" ]; then
           python3 ${{ github.action_path }}/src/main.py generate-hierarchy-action
         else
           python3 ${{ github.action_path }}/src/main.py upload

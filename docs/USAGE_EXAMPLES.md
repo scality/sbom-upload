@@ -24,9 +24,9 @@ jobs:
           url: 'https://dependency-track.example.com'
           api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
           project-sbom: 'sbom.json'
-          project_name: 'my-application'
-          project_version: '1.2.3'
-          is_latest: 'true'
+          project-name: 'my-application'
+          project-version: '1.2.3'
+          is-latest: 'true'
 ```
 
 ### Multiple SBOMs from File List
@@ -38,10 +38,10 @@ jobs:
     url: ${{ vars.DEPENDENCY_TRACK_URL }}
     api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
     project-sbom-list: 'list-sbom-files.txt'
-    project_prefix: 'ci-'
-    project_suffix: '-prod'
-    project_classifier: 'APPLICATION'
-    project_tags: 'production,ci-cd'
+    project-prefix: 'ci-'
+    project-suffix: '-prod'
+    project-classifier: 'APPLICATION'
+    project-tags: 'production,ci-cd'
 ```
 
 Where `sbom-files.txt` contains:
@@ -60,13 +60,13 @@ database/sbom.json
     url: ${{ vars.DEPENDENCY_TRACK_URL }}
     api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
     project-sbom-dir: 'dist/sboms/'
-    parent_project_name: 'microservices-suite'
-    parent_project_version: '2.1.0'
-    parent_project_classifier: 'APPLICATION'
-    parent_project_collection_logic: 'AGGREGATE_DIRECT_CHILDREN'
-    project_classifier: 'LIBRARY'
-    project_prefix: 'service-'
-    auto_detect_latest: 'true'
+    parent-project-name: 'microservices-suite'
+    parent-project-version: '2.1.0'
+    parent-project-classifier: 'APPLICATION'
+    parent-project-collection-logic: 'AGGREGATE_DIRECT_CHILDREN'
+    project-classifier: 'LIBRARY'
+    project-prefix: 'service-'
+    auto-detect-latest: 'true'
 ```
 
 ### Dry Run Testing
@@ -78,8 +78,8 @@ database/sbom.json
     url: ${{ vars.DEPENDENCY_TRACK_URL }}
     api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
     project-sbom: 'dist/sbom.json'
-    dry_run: 'true'
-    project_description: 'Main application SBOM validation'
+    dry-run: 'true'
+    project-description: 'Main application SBOM validation'
 ```
 
 ### Advanced Configuration with Custom Hierarchy
@@ -91,13 +91,13 @@ database/sbom.json
     url: ${{ vars.DEPENDENCY_TRACK_URL }}
     api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
     project-sbom: 'app-sbom.json'
-    project_name: 'microservice-app'
-    project_classifier: 'APPLICATION'
-    parent_project_classifier: 'APPLICATION'
-    project_collection_logic: 'AGGREGATE_LATEST_VERSION_CHILDREN'
-    parent_project_collection_logic: 'AGGREGATE_LATEST_VERSION_CHILDREN'
-    project_description: 'Main application microservice'
-    is_latest: 'true'
+    project-name: 'microservice-app'
+    project-classifier: 'APPLICATION'
+    parent-project-classifier: 'APPLICATION'
+    project-collection-logic: 'AGGREGATE_LATEST_VERSION_CHILDREN'
+    parent-project-collection-logic: 'AGGREGATE_LATEST_VERSION_CHILDREN'
+    project-description: 'Main application microservice'
+    is-latest: 'true'
 ```
 
 ### With Version Detection
@@ -113,8 +113,8 @@ database/sbom.json
     url: ${{ vars.DEPENDENCY_TRACK_URL }}
     api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
     project-sbom: 'dist/sbom.json'
-    project_version: ${{ steps.version.outputs.version }}
-    is_latest: ${{ github.ref == 'refs/heads/main' }}
+    project-version: ${{ steps.version.outputs.version }}
+    is-latest: ${{ github.ref == 'refs/heads/main' }}
 ```
 
 ### Hierarchy Generation from Nested SBOM Structure
