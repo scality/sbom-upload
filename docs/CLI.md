@@ -3,16 +3,20 @@
 A simple, pythonic CLI for testing and uploading SBOMs to Dependency Track.
 
 #### Validate Configuration
+
 Validate all GitHub Action inputs:
+
 ```bash
 python3 src/main.py validate-inputs
 ```
 
 #### Generate Hierarchy Configuration
+
 Generate hierarchical configuration JSON from nested SBOM directory structures:
+
 ```bash
 # Generate hierarchy and print to stdout
-python3 src/main.py generate-hierarchy -i tests/project]
+python3 src/main.py generate-hierarchy -i tests/project
 
 # Save generated hierarchy to file
 python3 src/main.py generate-hierarchy -i tests/project -o project-hierarchy.json
@@ -26,17 +30,12 @@ This command automatically scans directory structures containing SBOM files and 
 - Files ending in `*_sbom.json` become leaf components
 - Directory structure determines parent-child relationships
 
-#### Help
-Get help and see all available commands:
-```bash
-python3 src/main.py --help
-```esting and uploading SBOMs to Dependency Track.
-
 ## Usage
 
 ### Prerequisites
 
 Set the required environment variables:
+
 ```bash
 export INPUT_URL="http://localhost:8081"
 export INPUT_API_KEY="your-dependency-track-api-key"
@@ -45,7 +44,9 @@ export INPUT_API_KEY="your-dependency-track-api-key"
 ### Available Commands
 
 #### Upload SBOMs
+
 Upload SBOMs to Dependency Track with auto-detection based on environment variables:
+
 ```bash
 # Single SBOM upload
 export INPUT_PROJECT_SBOM="sbom.json"
@@ -66,30 +67,28 @@ python3 src/main.py upload
 ```
 
 #### Test Connection
+
 Test connectivity to your Dependency Track instance:
+
 ```bash
 python3 src/main.py test-connection
 ```
 
 #### Validate Inputs
+
 Validate all GitHub Action inputs:
+
 ```bash
 python3 src/main.py validate-inputs
 ```
 
 #### Help
+
 Get help and see all available commands:
+
 ```bash
 python3 src/main.py --help
 ```
-
-## Development
-
-This CLI provides a complete interface for SBOM upload operations:
-1. ✅ Input validation - Validates all required environment variables
-2. ✅ Connection testing - Tests connectivity to Dependency Track
-3. ✅ SBOM upload - Supports multiple upload modes with auto-detection
-4. ✅ Project management - Full project hierarchy and configuration support
 
 ## Example Environment Setup
 
