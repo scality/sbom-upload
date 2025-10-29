@@ -5,7 +5,7 @@ from typing import List, Union, Dict, Any, Optional
 import logging
 import re
 import json
-import uuid
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,10 @@ def generate_hierarchy_config(
         # If no subdirectories found, check for individual SBOM files in root
         if not children:
             root_leaf_components = _find_leaf_components(
-                root_path, root_path, use_absolute_paths
+                root_path,
+                root_path,
+                use_absolute_paths,
+                parent_name=f"meta_{metapp_name}",
             )
             children = root_leaf_components
 
@@ -195,7 +198,10 @@ def generate_hierarchy_config(
             # Also check for individual SBOMs in the same directory as the merged SBOM
             # (for flat structures where all components are in the same directory)
             individual_components = _find_leaf_components(
-                root_path, root_path, use_absolute_paths
+                root_path,
+                root_path,
+                use_absolute_paths,
+                parent_name=f"{metapp_name}_{metapp_version}",
             )
             children.extend(individual_components)
 
@@ -266,7 +272,10 @@ def _process_directory_children(
 
                 # Find leaf components in this subdirectory
                 leaf_components = _find_leaf_components(
-                    subdir, None, use_absolute_paths
+                    subdir,
+                    None,
+                    use_absolute_paths,
+                    parent_name=f"meta_{parsed['name']}",
                 )
 
                 # Create collection project for this sub-application (merged SBOM is NOT uploaded)
@@ -282,7 +291,9 @@ def _process_directory_children(
 
         else:
             # No merged SBOM, check if there are individual SBOMs to create a virtual group
-            leaf_components = _find_leaf_components(subdir, None, use_absolute_paths)
+            leaf_components = _find_leaf_components(
+                subdir, None, use_absolute_paths, parent_name=f"meta_{subdir.name}"
+            )
             if leaf_components:
                 # Create a virtual application group for this subdirectory
                 child_app = {
@@ -299,7 +310,10 @@ def _process_directory_children(
 
 
 def _find_leaf_components(
-    directory: Path, root_dir: Optional[Path] = None, use_absolute_paths: bool = False
+    directory: Path,
+    root_dir: Optional[Path] = None,
+    use_absolute_paths: bool = False,
+    parent_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Find individual SBOM files (leaf components) in a directory.
@@ -307,6 +321,8 @@ def _find_leaf_components(
     Args:
         directory: Directory to scan for leaf SBOMs
         root_dir: Root directory for calculating relative paths (optional)
+        use_absolute_paths: If True, use absolute paths for SBOM files
+        parent_name: Name of the parent project to use as suffix for uniqueness
 
     Returns:
         List of leaf component configurations
@@ -335,9 +351,15 @@ def _find_leaf_components(
                 # Default behavior for nested structure
                 sbom_path = str(sbom_file.relative_to(directory.parent.parent))
 
-        # Generate a short UUID suffix to ensure unique project names
-        uuid_suffix = str(uuid.uuid4())[:8]
-        unique_name = f"{parsed['name']}-{uuid_suffix}"
+        # Generate a deterministic suffix based on parent project name to avoid duplicates
+        # This ensures the same project name is used across multiple GitHub Action runs
+        # and creates a relationship between parent and child projects
+        identifier = (
+            parent_name.lower().replace(" ", "-").replace("_", "-")
+            if parent_name
+            else hashlib.sha256(sbom_path.encode()).hexdigest()[:8]
+        )
+        unique_name = f"{parsed['name']}-{identifier}"
 
         component = {
             "name": unique_name,
