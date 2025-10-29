@@ -157,12 +157,13 @@ def validate_inputs_cmd() -> None:
         raise click.ClickException(str(error))
 
 
-def _get_upload_strategy(config: AppConfig) -> SBOMUploader:
+def _get_upload_strategy(config: AppConfig, services: Services) -> SBOMUploader:
     """
     Factory function to determine the appropriate upload strategy.
 
     Args:
         config: Application configuration
+        services: Service container
 
     Returns:
         SBOMUploader: The appropriate strategy for the given configuration
@@ -171,16 +172,16 @@ def _get_upload_strategy(config: AppConfig) -> SBOMUploader:
         click.ClickException: If no valid upload mode is found
     """
     if config.parent_name:
-        return NestedUploader()
+        return NestedUploader(config, services)
 
     if config.project_sbom_list:
-        return ListUploader()
+        return ListUploader(config, services)
 
     if config.project_sbom_dir:
-        return DirectoryUploader()
+        return DirectoryUploader(config, services)
 
     if config.project_sbom:
-        return SingularUploader()
+        return SingularUploader(config, services)
 
     raise click.ClickException("No SBOM input provided")
 
@@ -211,8 +212,8 @@ def upload(services: Services) -> None:
 
     try:
         # Get the appropriate upload strategy and execute it
-        strategy = _get_upload_strategy(config)
-        strategy.upload(config, services)
+        strategy = _get_upload_strategy(config, services)
+        strategy.upload()
 
     except SBOMUploadError as error:
         click.echo(f"{error}")

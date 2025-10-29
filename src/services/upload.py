@@ -92,7 +92,18 @@ def upload_multiple_with_summary(
 class SBOMUploader(ABC):  # pylint: disable=too-few-public-methods
     """Abstract base class for SBOM upload strategies."""
 
+    def __init__(self, config: AppConfig, services: Services) -> None:
+        """
+        Initialize the uploader with config and services.
+
+        Args:
+            config: Application configuration
+            services: Service container
+        """
+        self.config = config
+        self.services = services
+
     @abstractmethod
-    def upload(self, config: AppConfig, services: Services) -> None:
+    def upload(self) -> None:
         """Execute the upload strategy."""
         raise NotImplementedError

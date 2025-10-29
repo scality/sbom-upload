@@ -2,22 +2,20 @@
 
 from pathlib import Path
 import click
-from config.config import AppConfig
 from domain.models import SBOMFile
-from services.container import Services
 from services.upload import SBOMUploader
 
 
 class SingularUploader(SBOMUploader):  # pylint: disable=too-few-public-methods
     """Strategy for uploading a single SBOM file."""
 
-    def upload(self, config: AppConfig, services: Services) -> None:
+    def upload(self) -> None:
         """Upload a single SBOM file."""
-        click.echo(f"Processing single SBOM: {config.project_sbom}")
+        click.echo(f"Processing single SBOM: {self.config.project_sbom}")
 
-        sbom_file = SBOMFile(path=Path(config.project_sbom))
-        result = services.sbom_service.upload_single_sbom(
-            sbom_file, config.project_name, config.project_version
+        sbom_file = SBOMFile(path=Path(self.config.project_sbom))
+        result = self.services.sbom_service.upload_single_sbom(
+            sbom_file, self.config.project_name, self.config.project_version
         )
 
         if not result.success:
