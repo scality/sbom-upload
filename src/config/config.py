@@ -74,6 +74,9 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
     # Tags
     project_tags: Optional[str] = None
 
+    # Hierarchy inputs
+    hierarchy_input_dir: Optional[str] = None
+
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
         self._validate()
@@ -194,6 +197,7 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
                 "INPUT_PARENT_PROJECT_COLLECTION_LOGIC",
                 "AGGREGATE_LATEST_VERSION_CHILDREN",
             ).strip(),
+            hierarchy_input_dir=os.getenv("INPUT_HIERARCHY_INPUT_DIR", "").strip() or None,
         )
 
     def validate_for_upload(self) -> None:
@@ -211,10 +215,11 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
             not self.project_sbom
             and not self.project_sbom_list
             and not self.project_sbom_dir
+            and not self.hierarchy_input_dir
         ):
             raise ValidationError(
-                "Either project_sbom, project_sbom_list,"
-                "or project_sbom_dir is required for upload operations"
+                "Either project_sbom, project_sbom_list, project_sbom_dir, "
+                "or hierarchy_input_dir is required for upload operations"
             )
 
         if self.project_sbom:
@@ -235,6 +240,16 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
             if not Path(self.project_sbom_dir).is_dir():
                 raise ValidationError(
                     f"SBOM directory path is not a directory: {self.project_sbom_dir}"
+                )
+
+        if self.hierarchy_input_dir:
+            if not Path(self.hierarchy_input_dir).exists():
+                raise ValidationError(
+                    f"Hierarchy input directory not found: {self.hierarchy_input_dir}"
+                )
+            if not Path(self.hierarchy_input_dir).is_dir():
+                raise ValidationError(
+                    f"Hierarchy input directory path is not a directory: {self.hierarchy_input_dir}"
                 )
 
 

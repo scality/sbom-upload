@@ -183,6 +183,12 @@ def _get_upload_strategy(config: AppConfig, services: Services) -> SBOMUploader:
     if config.project_sbom:
         return SingularUploader(config, services)
 
+    # Fallback: use hierarchy_input_dir as project_sbom_dir
+    if config.hierarchy_input_dir:
+        # Temporarily set project_sbom_dir to hierarchy_input_dir for the strategy
+        config.project_sbom_dir = config.hierarchy_input_dir
+        return DirectoryUploader(config, services)
+
     raise click.ClickException("No SBOM input provided")
 
 
