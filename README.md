@@ -1,7 +1,7 @@
 # SBOM Upload Action
 
-[![GitHub release](https://img.shields.io/github/release/scality/sbom-upload.svg)](https://github.com/scality/sbom-upload/releases)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/release/scality/sbom-upload.svg)](https://github.com/scality/sbom-upload/releases/latest)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/scality/sbom/blob/main/LICENSE)
 
 A GitHub Action and CLI tool for uploading Software Bill of Materials (SBOM) files to [Dependency Track](https://dependencytrack.org/).
 
