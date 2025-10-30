@@ -139,6 +139,10 @@ class SBOMFile:
 
     def __post_init__(self) -> None:
         """Validate file exists after initialization."""
+        # Ensure path is a Path object
+        if isinstance(self.path, str):
+            self.path = Path(self.path)
+        
         if not self.path.exists():
             raise FileNotFoundError(f"SBOM file not found: {self.path}")
 

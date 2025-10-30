@@ -47,7 +47,7 @@ def _handle_multiple_sbom_upload(
         UploadError: If all uploads fail
     """
     results = services.sbom_service.upload_multiple_sboms(
-        sbom_files, config.project_name, config.project_version
+        [sbom_file.path for sbom_file in sbom_files], config.project_name, config.project_version
     )
 
     successful = sum(1 for result in results if result.success)
