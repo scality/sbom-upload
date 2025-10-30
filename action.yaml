@@ -16,7 +16,7 @@ inputs:
 
   project-sbom:
     description: "Path to the SBOM file to upload"
-    required: true
+    required: false
 
   project-sbom-list:
     description: "Path to a text file containing a list of SBOM files to upload (one per line)"
