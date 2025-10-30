@@ -1,0 +1,77 @@
+{
+  "meta_app": {
+    "version": null,
+    "collection_logic": "AGGREGATE_LATEST_VERSION_CHILDREN",
+    "classifier": "APPLICATION",
+    "tags": ["metapp"],
+    "children": [
+      {
+        "name": "my_app",
+        "version": "1.0.0",
+        "collection_logic": "AGGREGATE_DIRECT_CHILDREN",
+        "classifier": "APPLICATION",
+        "tags": ["myapp_version", "myapp"],
+        "children": [
+          {
+            "name": "sub_app",
+            "version": "2.0.0",
+            "collection_logic": "NONE",
+            "classifier": "APPLICATION",
+            "tags": ["subtag"],
+            "sbom_file": "tests/multiple_sbom/prometheus.json"
+          },
+          {
+            "name": "sub_app2",
+            "version": "2.1.0",
+            "collection_logic": "NONE",
+            "classifier": "APPLICATION",
+            "tags": ["subtag2"],
+            "sbom_file": "tests/multiple_sbom/prometheus-operator.json"
+          },
+          {
+            "name": "sub_rpm",
+            "version": "1.0.0",
+            "collection_logic": "NONE",
+            "classifier": "APPLICATION",
+            "tags": ["subtag"],
+            "sbom_file": "tests/multiple_sbom/nginx_rpm_1.29.json"
+          }
+        ]
+      },
+      {
+        "name": "my_app",
+        "version": "2.0.0",
+        "collection_logic": "AGGREGATE_DIRECT_CHILDREN",
+        "classifier": "APPLICATION",
+        "tags": ["myapp_version", "myapp"],
+        "is_latest": true,
+        "children": [
+          {
+            "name": "sub_app",
+            "version": "3.0.0",
+            "collection_logic": "NONE",
+            "classifier": "APPLICATION",
+            "tags": ["subtag"],
+            "sbom_file": "tests/multiple_sbom/prometheus.json"
+          },
+          {
+            "name": "sub_app2",
+            "version": "3.1.0",
+            "collection_logic": "NONE",
+            "classifier": "APPLICATION",
+            "tags": ["subtag2"],
+            "sbom_file": "tests/multiple_sbom/prometheus-operator.json"
+          },
+          {
+            "name": "sub_rpm",
+            "version": "3.0.0",
+            "collection_logic": "NONE",
+            "classifier": "APPLICATION",
+            "tags": ["subtag"],
+            "sbom_file": "tests/multiple_sbom/nginx_rpm_1.29.json"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+{
+    "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.6",
+    "serialNumber": "urn:uuid:7b9b5b11-8ebe-48a8-9ee2-892743e1365b",
+    "version": 1,
+    "metadata": {
+        "timestamp": "2025-09-11T12:39:30+02:00",
+        "tools": {
+            "components": [
+                {
+                    "type": "application",
+                    "author": "anchore",
+                    "name": "syft",
+                    "version": "1.32.0"
+                }
+            ]
+        },
+        "component": {
+            "bom-ref": "86beb3dd00c5feac",
+            "type": "file",
+            "name": "nginx",
+            "version": "1.29.1"
+        }
+    },
+    "components": [
+        {
+            "bom-ref": "pkg:rpm/nginx@1.29.1-1.1?arch=x86_64&epoch=0&package-id=625a22f276422a61&upstream=nginx-1.29.1-1.1.src.rpm",
+            "type": "library",
+            "name": "nginx",
+            "version": "0:1.29.1-1.1",
+            "licenses": [
+                {
+                    "license": {
+                        "id": "BSD-2-Clause"
+                    }
+                }
+            ],
+            "cpe": "cpe:2.3:a:opensuse:nginx:0\\:1.29.1-1.1:*:*:*:*:*:*:*",
+            "purl": "pkg:rpm/nginx@1.29.1-1.1?arch=x86_64&epoch=0&upstream=nginx-1.29.1-1.1.src.rpm",
+            "properties": [
+                {
+                    "name": "syft:package:foundBy",
+                    "value": "rpm-archive-cataloger"
+                },
+                {
+                    "name": "syft:package:type",
+                    "value": "rpm"
+                },
+                {
+                    "name": "syft:package:metadataType",
+                    "value": "rpm-archive"
+                },
+                {
+                    "name": "syft:cpe23",
+                    "value": "cpe:2.3:a:nginx:nginx:0\\:1.29.1-1.1:*:*:*:*:*:*:*"
+                },
+                {
+                    "name": "syft:location:0:path",
+                    "value": "/nginx-1.29.1-1.1.x86_64.rpm"
+                },
+                {
+                    "name": "syft:metadata:epoch",
+                    "value": "0"
+                },
+                {
+                    "name": "syft:metadata:release",
+                    "value": "1.1"
+                },
+                {
+                    "name": "syft:metadata:size",
+                    "value": "2612008"
+                },
+                {
+                    "name": "syft:metadata:sourceRpm",
+                    "value": "nginx-1.29.1-1.1.src.rpm"
+                }
+            ]
+        },
+        {
+            "bom-ref": "1adb9f62b767ce18",
+            "type": "file",
+            "name": "/home/manchot/workspace/sbom-upload/tests/multiple_sbom/nginx-1.29.1-1.1.x86_64.rpm",
+            "hashes": [
+                {
+                    "alg": "SHA-1",
+                    "content": "3f39024042ef70b6374c31892ea1caab0e6ba688"
+                },
+                {
+                    "alg": "SHA-256",
+                    "content": "9b329a1bc838cb6421daf778b65baf981ed4b2a6c0d5dcea0e4f3f7570f038b0"
+                }
+            ]
+        }
+    ]
+}
