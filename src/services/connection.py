@@ -18,6 +18,7 @@ class ConnectionService:
     def __init__(self, config: AppConfig, dry_run: bool = False) -> None:
         self.config = config
         self.dry_run = dry_run
+        self.timeout = config.api_timeout
         self.headers = {
             "X-API-Key": config.api_key,
             "Content-Type": APIConstants.JSON_CONTENT_TYPE,
@@ -42,7 +43,11 @@ class ConnectionService:
         url = f"{self.config.url}/project"
 
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = requests.get(
+                url,
+                headers=self.headers,
+                timeout=APIConstants.DEFAULT_CONNECTION_TEST_TIMEOUT,
+            )
 
             # Handle authentication errors separately since they need specific exceptions
             if response.status_code == 401:
@@ -67,7 +72,10 @@ class ConnectionService:
         except requests.exceptions.ConnectionError as exc:
             raise APIConnectionError(f"Unable to connect to {self.config.url}") from exc
         except requests.exceptions.Timeout as exc:
-            raise APIConnectionError("Connection timeout") from exc
+            raise APIConnectionError(
+                f"Connection test timed out after "
+                f"{APIConstants.DEFAULT_CONNECTION_TEST_TIMEOUT} seconds"
+            ) from exc
         except requests.exceptions.RequestException as error:
             raise APIConnectionError(f"Request failed: {str(error)}") from error
 
@@ -86,6 +94,8 @@ class ConnectionService:
             APIConnectionError: If the request fails
             AuthenticationError: If authentication fails
         """
+        logger.debug("make_request called: method=%s, endpoint=%s, dry_run=%s", 
+                    method, endpoint, self.dry_run)
         if self.dry_run and method.upper() in ["POST", "PUT", "DELETE"]:
             logger.info("[DRY RUN] Would %s to %s", method.upper(), endpoint)
             return None
@@ -99,8 +109,15 @@ class ConnectionService:
             headers.pop("Content-Type", None)
 
         try:
+            # Use tuple form of timeout: (connect_timeout, read_timeout)
+            # This ensures both connection and data reading have proper timeouts
+            timeout_tuple = (30, self.timeout)  # 30s to connect, configured timeout to read
+            logger.debug(
+                "Making %s request to %s with timeout: connect=30s, read=%ss",
+                method, endpoint, self.timeout
+            )
             response = requests.request(
-                method=method, url=url, headers=headers, timeout=30, **kwargs
+                method=method, url=url, headers=headers, timeout=timeout_tuple, **kwargs
             )
 
             # Handle authentication errors separately since they need specific exceptions
@@ -109,6 +126,8 @@ class ConnectionService:
             if response.status_code == HTTPStatus.FORBIDDEN:
                 raise AuthenticationError("API access forbidden")
 
+            logger.debug("Request successful: status=%s, endpoint=%s", 
+                        response.status_code, endpoint)
             return response
 
         except (  # pylint: disable=try-except-raise
@@ -116,5 +135,15 @@ class ConnectionService:
             APIConnectionError,
         ):
             raise
+        except requests.exceptions.Timeout as exc:
+            raise APIConnectionError(
+                f"API request timed out (read timeout: {self.timeout} seconds, "
+                f"connect timeout: 30 seconds). "
+                f"Consider increasing INPUT_API_TIMEOUT environment variable for slow operations."
+            ) from exc
+        except requests.exceptions.ConnectionError as exc:
+            raise APIConnectionError(
+                f"Unable to connect to {self.config.url}: {str(exc)}"
+            ) from exc
         except requests.exceptions.RequestException as error:
             raise APIConnectionError(f"API request failed: {str(error)}") from error
