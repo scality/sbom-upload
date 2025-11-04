@@ -342,6 +342,7 @@ INPUT_PROJECT_CLASSIFIER            # Project classifier (APPLICATION, LIBRARY, 
 INPUT_PROJECT_COLLECTION_LOGIC      # How child projects are aggregated
 INPUT_PROJECT_TAGS                  # Comma-separated tags
 INPUT_IS_LATEST                     # Mark as latest version (true/false)
+INPUT_API_TIMEOUT                   # API timeout in seconds (default: 300)
 ```
 
 ## 🎯 Use Case Examples
@@ -460,6 +461,38 @@ print(f'Latest version: {get_latest_version(versions)}')
 - Verify URL format: `https://your-domain.com` (without `/api/v1`)
 - Check network connectivity
 - Validate SSL certificates
+
+### Timeout Errors
+```
+❌ Upload failed: Failed to create project X: Project creation failed: No response
+❌ API request timed out after 300 seconds
+```
+**What's happening**: The API request is taking longer than the configured timeout period. This commonly occurs with:
+- Slow network connections
+- Large SBOM files
+- Heavy server load
+- Project creation with many dependencies
+
+**Solutions**:
+1. **Increase the timeout** (recommended for large projects):
+   ```yaml
+   - uses: scality/sbom-upload@v1
+     with:
+       api-timeout: 300  # 5 minutes
+   ```
+
+2. **For CLI usage**, set the environment variable:
+   ```bash
+   export INPUT_API_TIMEOUT=300
+   python3 src/main.py upload
+   ```
+
+3. **Check server performance**: Verify your Dependency Track instance isn't overloaded
+
+4. **Split large uploads**: Break up multiple SBOM uploads into separate jobs if possible
+
+**Default timeout**: 300 seconds (5 minutes)  
+**Recommended for large projects**: 300-600 seconds (5-10 minutes)
 
 ### File Not Found
 ```

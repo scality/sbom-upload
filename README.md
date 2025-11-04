@@ -118,6 +118,7 @@ pip install -r requirements.txt
 | `parent-project-collection-logic` | ❌ | Parent collection logic | `AGGREGATE_DIRECT_CHILDREN` |
 | `is-latest` | ❌ | Mark as latest version | `true` |
 | `auto-detect-latest` | ❌ | Auto-detect latest flag | `true` |
+| `api-timeout` | ❌ | API timeout (seconds) | `300` |
 | `dry-run` | ❌ | Validate without uploading | `true` |
 | `project-prefix` | ❌ | Prefix for project names | `ci-` |
 | `project-suffix` | ❌ | Suffix for project names | `-prod` |

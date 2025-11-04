@@ -34,6 +34,7 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
         parent_classifier (str): Parent project classifier (default: "APPLICATION")
         parent_collection_logic (str): Parent project collection logic
             (default: "AGGREGATE_LATEST_VERSION_CHILDREN")
+        api_timeout (int): API request timeout in seconds (default: 300)
         dry_run (bool): If True, perform a dry run without making changes (default: False)
     Raises:
         ConfigurationError: If required configuration is missing or invalid
@@ -76,6 +77,9 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
 
     # Hierarchy inputs
     hierarchy_input_dir: Optional[str] = None
+
+    # API timeout configuration (in seconds)
+    api_timeout: int = 300
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""
@@ -198,6 +202,7 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
                 "AGGREGATE_LATEST_VERSION_CHILDREN",
             ).strip(),
             hierarchy_input_dir=os.getenv("INPUT_HIERARCHY_INPUT_DIR", "").strip() or None,
+            api_timeout=int(os.getenv("INPUT_API_TIMEOUT", "300").strip()),
         )
 
     def validate_for_upload(self) -> None:

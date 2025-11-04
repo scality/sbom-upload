@@ -27,7 +27,10 @@ class APIResponseHandler:  # pylint: disable=too-few-public-methods
             APIConnectionError: If the response indicates a failure
         """
         if not response:
-            raise APIConnectionError(f"{operation} failed: No response")
+            raise APIConnectionError(
+                f"{operation} failed: No response received from server. "
+                "This may indicate a timeout or connection issue."
+            )
 
         # Handle both integer and enum success status values
         success_value = (

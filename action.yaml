@@ -101,6 +101,11 @@ inputs:
     required: false
     default: "true"
 
+  api-timeout:
+    description: "API request timeout in seconds (increase for slow networks or large projects)"
+    required: false
+    default: "300"
+
   dry-run:
     description: "Enable dry run mode (no actual uploads, just validation and logging)"
     required: false
