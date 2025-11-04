@@ -63,10 +63,69 @@ class ProjectService:
             return self._update_project(project)
 
         # Create new project
-        response = self.connection.make_request(
-            method="PUT", endpoint="/project", json=project.to_api_dict()
-        )
+        try:
+            logger.debug("Sending PUT request to create project: %s", project.name)
+            response = self.connection.make_request(
+                method="PUT", endpoint="/project", json=project.to_api_dict()
+            )
+            logger.debug("Received response for project creation: %s (type: %s)", 
+                        project.name, type(response).__name__)
+        except APIConnectionError as conn_err:
+            # Re-raise connection errors as ProjectCreationError with context
+            raise ProjectCreationError(
+                f"Failed to create project {project.name}: {conn_err}"
+            ) from conn_err
+        except Exception as exc:
+            # Catch any unexpected exceptions
+            logger.error("Unexpected error during project creation for %s: %s", 
+                        project.name, exc, exc_info=True)
+            raise ProjectCreationError(
+                f"Unexpected error creating project {project.name}: {exc}"
+            ) from exc
 
+        # Check response validity and handle special status codes
+        if response is None:
+            logger.error("Response is None for project: %s (dry_run: %s)", 
+                       project.name, self.connection.dry_run)
+            raise ProjectCreationError(f"No response received for project {project.name}")
+        
+        # Handle 409 Conflict - project already exists with same name
+        if response.status_code == 409:
+            logger.warning("Project %s (version: %s) already exists (409 Conflict), treating as existing project", 
+                         project.name, project.version)
+            
+            # First try to find with exact version match
+            existing_project = self._find_existing_project(project.name, project.version)
+            
+            # If not found with exact version, try without version constraint
+            # (409 means a project with this name exists, possibly with different version)
+            if not existing_project:
+                logger.info("Exact version not found, searching for any project with name: %s", project.name)
+                existing_project = self._find_existing_project(project.name, None)
+            
+            if existing_project:
+                project.uuid = existing_project["uuid"]
+                logger.info("Found existing project: %s (existing version: %s, new version: %s)", 
+                          project.uuid, existing_project.get("version"), project.version)
+                
+                #Handle latest version detection
+                if auto_detect_latest and project.version:
+                    self._handle_latest_version_detection(project)
+                
+                # Update the existing project (this will update the version if it changed)
+                return self._update_project(project)
+            else:
+                # Try to parse the response to get more info about the conflict
+                try:
+                    if response.text:
+                        logger.error("409 response body: %s", response.text)
+                except Exception:
+                    pass
+                raise ProjectCreationError(
+                    f"Project {project.name} (version: {project.version}) exists (409 Conflict) but could not be retrieved. "
+                    f"This may indicate a database inconsistency."
+                )
+        
         try:
             project_data = APIResponseHandler.handle_response(
                 response,
@@ -139,6 +198,29 @@ class ProjectService:
             APIConnectionError: If there is a connection issue
             AuthenticationError: If authentication fails
         """
+        # Use lookup endpoint to search by name with pagination support
+        # DependencyTrack supports /api/v1/project/lookup?name=X&version=Y
+        endpoint = f"/project/lookup?name={name}"
+        if version:
+            endpoint += f"&version={version}"
+        
+        response = self.connection.make_request(method="GET", endpoint=endpoint)
+        
+        try:
+            project = APIResponseHandler.handle_response(
+                response, success_status=HTTPStatus.OK, operation="Project lookup"
+            )
+            if project:
+                logger.debug("Found project via lookup: %s (uuid: %s)", 
+                           project.get("name"), project.get("uuid"))
+                return project
+            return None
+        except APIConnectionError:
+            logger.debug("Project lookup failed, falling back to list endpoint")
+            # Fall back to listing all projects if lookup fails
+            pass
+        
+        # Fallback: list all projects (with pagination)
         response = self.connection.make_request(method="GET", endpoint="/project")
 
         try:
@@ -148,11 +230,27 @@ class ProjectService:
             if not projects:
                 return None
 
+            logger.debug("Searching for project: name='%s', version='%s'", name, version)
+            logger.debug("Total projects in response: %d", len(projects))
+            
+            # Check if we're looking for veeam-exporter to debug
+            if "veeam" in name.lower():
+                veeam_projects = [p for p in projects if "veeam" in p["name"].lower()]
+                logger.debug("Found %d projects with 'veeam' in name: %s", 
+                           len(veeam_projects), 
+                           [(p["name"], p.get("version")) for p in veeam_projects])
+            
             for project in projects:
                 if project["name"] == name:
+                    logger.debug("Found matching name: %s (version: %s)", 
+                               project["name"], project.get("version"))
                     if version is None or project.get("version") == version:
                         return project
+                    else:
+                        logger.debug("Version mismatch: looking for '%s', found '%s'", 
+                                   version, project.get("version"))
 
+            logger.debug("No matching project found")
             return None
         except APIConnectionError:
             logger.warning("Failed to retrieve projects for lookup")
