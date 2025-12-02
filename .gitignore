@@ -5,6 +5,9 @@
 samples/
 results/
 
+# Local workflow reproduction scripts (intentionally untracked)
+tests/custom/*
+
 ### Linux ###
 *~
 
