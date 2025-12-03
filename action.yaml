@@ -111,6 +111,16 @@ inputs:
     required: false
     default: "false"
 
+  delete-on-version-suffix-match:
+    description: "Delete existing leaf project when version matches suffix pattern"
+    required: false
+    default: "false"
+
+  delete-version-suffix-pattern:
+    description: "Case-insensitive regex evaluated against project version when delete is enabled"
+    required: false
+    default: "dev"
+
   # Hierarchy Generation Inputs
   generate-hierarchy:
     description: "Generate hierarchical configuration from nested SBOM directory structure"
@@ -218,6 +228,8 @@ runs:
         INPUT_IS_LATEST: ${{ inputs.is-latest }}
         INPUT_AUTO_DETECT_LATEST: ${{ inputs.auto-detect-latest }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_DELETE_ON_VERSION_SUFFIX_MATCH: ${{ inputs.delete-on-version-suffix-match }}
+        INPUT_DELETE_VERSION_SUFFIX_PATTERN: ${{ inputs.delete-version-suffix-pattern }}
         INPUT_GENERATE_HIERARCHY: ${{ inputs.generate-hierarchy }}
         INPUT_HIERARCHY_INPUT_DIR: ${{ inputs.hierarchy-input-dir }}
         INPUT_HIERARCHY_OUTPUT_FILE: ${{ inputs.hierarchy-output-file }}
