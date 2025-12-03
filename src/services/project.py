@@ -1,6 +1,7 @@
 """Project management service."""
 
 import logging
+import re
 from typing import Optional, List, Dict, Any
 
 from domain.constants import HTTPStatus
@@ -9,7 +10,7 @@ from domain.exceptions import (
     APIConnectionError,
     AuthenticationError,
 )
-from domain.models import Project
+from domain.models import Project, CollectionLogic
 from domain.version import is_latest_version, get_latest_version
 from services.connection import ConnectionService
 from services.response_handler import APIResponseHandler
@@ -22,9 +23,25 @@ class ProjectService:
 
     def __init__(self, connection_service: ConnectionService) -> None:
         self.connection = connection_service
+        config = getattr(connection_service, "config", None)
+        self.delete_on_suffix_match = (
+            getattr(config, "delete_on_version_suffix_match", False)
+            if config
+            else False
+        )
+        configured_pattern = (
+            getattr(config, "delete_version_suffix_pattern", "dev")
+            if config
+            else "dev"
+        )
+        self.delete_suffix_pattern = configured_pattern.strip() or "dev"
 
     def create_project(
-        self, project: Project, auto_detect_latest: bool = True
+        self,
+        project: Project,
+        auto_detect_latest: bool = True,
+        delete_if_version_matches: Optional[bool] = None,
+        delete_version_suffix_pattern: Optional[str] = None,
     ) -> Optional[Project]:
         """
         Create or update a project in Dependency Track.
@@ -39,6 +56,17 @@ class ProjectService:
             AuthenticationError: If authentication fails
         """
         logger.info("Creating/updating project: %s", project.name)
+
+        delete_on_suffix = (
+            delete_if_version_matches
+            if delete_if_version_matches is not None
+            else self.delete_on_suffix_match
+        )
+        pattern = (
+            delete_version_suffix_pattern.strip()
+            if delete_version_suffix_pattern is not None
+            else self.delete_suffix_pattern
+        ) or None
 
         if self.connection.dry_run:
             logger.info("[DRY RUN] Would create project: %s", project.name)
@@ -57,7 +85,11 @@ class ProjectService:
 
             # Handle latest version detection before updating
             if auto_detect_latest and project.version:
-                self._handle_latest_version_detection(project)
+                self._handle_latest_version_detection(
+                    project, 
+                    delete_on_suffix=delete_on_suffix,
+                    delete_pattern=pattern
+                )
 
             # Update the existing project with new properties
             return self._update_project(project)
@@ -90,7 +122,7 @@ class ProjectService:
             raise ProjectCreationError(f"No response received for project {project.name}")
         
         # Handle 409 Conflict - project already exists with same name
-        if response.status_code == 409:
+        if response.status_code == HTTPStatus.CONFLICT.value:
             logger.warning("Project %s (version: %s) already exists (409 Conflict), treating as existing project", 
                          project.name, project.version)
             
@@ -137,7 +169,11 @@ class ProjectService:
 
             # Handle latest version detection after creation
             if auto_detect_latest and project.version:
-                self._handle_latest_version_detection(project)
+                self._handle_latest_version_detection(
+                    project,
+                    delete_on_suffix=delete_on_suffix,
+                    delete_pattern=pattern
+                )
                 # Update the project if latest flag changed
                 if project.is_latest:
                     self._update_project(project)
@@ -148,6 +184,121 @@ class ProjectService:
             raise ProjectCreationError(
                 f"Failed to create project {project.name}: {error}"
             ) from error
+
+    def _should_delete_project(
+        self,
+        version: Optional[str],
+        delete_on_suffix: bool,
+        pattern: Optional[str],
+        collection_logic: CollectionLogic = CollectionLogic.NONE,
+    ) -> bool:
+        """Determine whether existing project should be deleted based on version pattern.
+        
+        Args:
+            version: Project version string
+            delete_on_suffix: Whether suffix-based deletion is enabled
+            pattern: Regex pattern for matching version suffix
+            collection_logic: Project collection logic (skip deletion if not NONE)
+            
+        Returns:
+            True if project should be deleted, False otherwise
+        """
+        if not delete_on_suffix:
+            return False
+        if collection_logic != CollectionLogic.NONE:
+            logger.debug("Skipping deletion for collection project (logic: %s)", collection_logic)
+            return False
+        if not version or not pattern:
+            return False
+
+        return self._matches_delete_pattern(version, pattern)
+
+    def _matches_delete_pattern(self, version: str, pattern: str) -> bool:
+        """Check whether the version matches the configured deletion pattern."""
+        try:
+            return bool(re.search(pattern, version, re.IGNORECASE))
+        except re.error:
+            logger.warning(
+                "Invalid delete version suffix pattern '%s'; falling back to substring match",
+                pattern,
+            )
+            return pattern.lower() in version.lower()
+
+    def _delete_project(
+        self,
+        project_uuid: Optional[str],
+        project_name: str,
+        project_version: Optional[str],
+    ) -> bool:
+        """Delete an existing project by UUID.
+        
+        Args:
+            project_uuid: UUID of project to delete
+            project_name: Name of project (for logging)
+            project_version: Version of project (for logging)
+            
+        Returns:
+            True if deletion succeeded or project already absent, False on failure
+        """
+        if not project_uuid:
+            logger.warning(
+                "Cannot delete project %s %s: missing project UUID",
+                project_name,
+                project_version,
+            )
+            return False
+
+        if self.connection.dry_run:
+            logger.info(
+                "[DRY RUN] Would delete project %s (version: %s, uuid: %s)",
+                project_name,
+                project_version,
+                project_uuid,
+            )
+            return True
+
+        response = self.connection.make_request(
+            method="DELETE", endpoint=f"/project/{project_uuid}"
+        )
+
+        if response is None:
+            # Request suppressed (e.g., dry run handled upstream)
+            return True
+
+        if response.status_code in (
+            HTTPStatus.NO_CONTENT.value,
+            HTTPStatus.OK.value,
+        ):
+            logger.info(
+                "Deleted project %s (version: %s, uuid: %s)",
+                project_name,
+                project_version,
+                project_uuid,
+            )
+            return True
+
+        if response.status_code == 404:
+            logger.info(
+                "Project %s (version: %s) already absent during delete attempt",
+                project_name,
+                project_version,
+            )
+            return True
+
+        try:
+            response_text = response.text  # type: ignore[attr-defined]
+        except Exception:  # pylint: disable=broad-except
+            response_text = "<no response body>"
+
+        logger.warning(
+            "Failed to delete project %s (version: %s, uuid: %s): status %s - %s",
+            project_name,
+            project_version,
+            project_uuid,
+            response.status_code,
+            response_text,
+        )
+        return False
 
     def _update_project(self, project: Project) -> Optional[Project]:
         """
@@ -369,7 +520,11 @@ class ProjectService:
         return root_projects
 
     def _handle_latest_version_detection(
-        self, project: Project, dry_run: bool = False
+        self,
+        project: Project,
+        dry_run: bool = False,
+        delete_on_suffix: bool = False,
+        delete_pattern: Optional[str] = None,
     ) -> None:
         """
         Automatically detect if this project version should be marked as latest.
@@ -377,9 +532,12 @@ class ProjectService:
             1. Gets all versions of the same project name
             2. Determines if the current version is the latest
             3. Updates latest flags accordingly
+            4. If parent has deletion pattern, deletes superseded versions
         Args:
             project (Project): The project to evaluate and potentially update
             dry_run (bool): If True, simulate without making changes
+            delete_on_suffix (bool): Whether to delete old versions based on parent pattern
+            delete_pattern (Optional[str]): Pattern to check against parent version
         Returns:
             None
         Raises:
@@ -401,8 +559,6 @@ class ProjectService:
 
         try:
             all_projects = self._get_all_versions_of_project(project.name)
-            # Get all projects with the same name
-
         except (
             APIConnectionError,
             AuthenticationError,
@@ -410,7 +566,7 @@ class ProjectService:
             TypeError,
         ) as error:
             logger.warning("Failed to get all versions for %s: %s", project.name, error)
-            # Don't fail the entire operation, just log the warning
+            return
 
         if not all_projects:
             # If no other versions exist, this is the latest
@@ -435,7 +591,6 @@ class ProjectService:
         except KeyError as error:
             logger.warning("Error processing versions for %s: %s", project.name, error)
             return
-            # Don't fail the entire operation, just log the warning
 
         # Add current version if not already in list
         if project.version not in version_strings:
@@ -453,15 +608,21 @@ class ProjectService:
                 error,
             )
             return
-            # Don't fail the entire operation, just log the warning
 
         if current_is_latest:
             project.is_latest = True
             logger.info("%s %s is the latest version", project.name, project.version)
 
-            # Remove latest flag from other versions
+            # Delete superseded versions if parent matches pattern
+            delete_old = False
+            if delete_on_suffix and delete_pattern:
+                parent_version = self._get_parent_version(project)
+                delete_old = (
+                    parent_version and self._matches_delete_pattern(parent_version, delete_pattern)
+                )
+
             self._update_latest_flags_for_project(
-                project.name, project.version, all_projects
+                project.name, project.version, all_projects, delete_old=delete_old
             )
         else:
             project.is_latest = False
@@ -484,7 +645,11 @@ class ProjectService:
         return [p for p in projects if p["name"] == project_name]
 
     def _update_latest_flags_for_project(
-        self, project_name: str, latest_version: str, all_projects: List[Dict[str, Any]]
+        self,
+        project_name: str,
+        latest_version: str,
+        all_projects: List[Dict[str, Any]],
+        delete_old: bool = False,
     ) -> None:
         """
         Update latest flags for all versions of a project.
@@ -492,17 +657,48 @@ class ProjectService:
             project_name (str): Name of the project
             latest_version (str): The version string that should be marked as latest
             all_projects (List[Dict[str, Any]]): List of all project versions
+            delete_old (bool): If True, delete old latest versions instead of just removing flag
         """
         for proj in all_projects:
-            if proj.get("version") and proj["version"] != latest_version:
-                # Remove latest flag from non-latest versions
-                if proj.get("isLatest", False):
-                    logger.info(
-                        "Removing latest flag from %s v%s",
-                        project_name,
-                        proj["version"],
-                    )
-                    self._remove_latest_flag(proj["uuid"])
+            if not proj.get("version") or proj["version"] == latest_version:
+                continue
+            if not proj.get("isLatest", False):
+                continue
+
+            if delete_old:
+                logger.info(
+                    "Deleting superseded version %s v%s (parent has deletion pattern)",
+                    project_name,
+                    proj["version"],
+                )
+                self._delete_project(proj["uuid"], project_name, proj["version"])
+                continue
+
+            logger.info("Removing latest flag from %s v%s", project_name, proj["version"])
+            self._remove_latest_flag(proj["uuid"])
+
+    def _get_parent_version(self, project: Project) -> Optional[str]:
+        """
+        Get the version of a project's parent.
+        Args:
+            project (Project): The project whose parent version to retrieve
+        Returns:
+            Optional[str]: Parent version string, or None if no parent or error
+        """
+        if not project.parent_uuid:
+            return None
+
+        try:
+            response = self.connection.make_request(
+                method="GET", endpoint=f"/project/{project.parent_uuid}"
+            )
+            if response and response.status_code == 200:
+                parent_data = response.json()
+                return parent_data.get("version")
+        except (APIConnectionError, AuthenticationError, KeyError) as error:
+            logger.debug("Failed to get parent version: %s", error)
+
+        return None
 
     def _remove_latest_flag(self, project_uuid: str) -> None:
         """

@@ -36,6 +36,8 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
             (default: "AGGREGATE_LATEST_VERSION_CHILDREN")
         api_timeout (int): API request timeout in seconds (default: 300)
         dry_run (bool): If True, perform a dry run without making changes (default: False)
+        delete_on_version_suffix_match (bool): Delete existing project when version matches suffix pattern
+        delete_version_suffix_pattern (str): Regex pattern (case-insensitive) used to detect versions
     Raises:
         ConfigurationError: If required configuration is missing or invalid
         ValidationError: If validation of specific fields fails
@@ -71,6 +73,8 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
     is_latest: bool = False
     auto_detect_latest: bool = True
     dry_run: bool = False
+    delete_on_version_suffix_match: bool = False
+    delete_version_suffix_pattern: str = "dev"
 
     # Tags
     project_tags: Optional[str] = None
@@ -203,6 +207,12 @@ class AppConfig:  # pylint: disable=too-many-instance-attributes
             ).strip(),
             hierarchy_input_dir=os.getenv("INPUT_HIERARCHY_INPUT_DIR", "").strip() or None,
             api_timeout=int(os.getenv("INPUT_API_TIMEOUT", "300").strip()),
+            delete_on_version_suffix_match=(
+                os.getenv("INPUT_DELETE_ON_VERSION_SUFFIX_MATCH", "false").strip().lower() == "true"
+            ),
+            delete_version_suffix_pattern=(
+                os.getenv("INPUT_DELETE_VERSION_SUFFIX_PATTERN", "dev").strip() or "dev"
+            ),
         )
 
     def validate_for_upload(self) -> None:

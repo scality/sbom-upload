@@ -17,5 +17,7 @@ class HTTPStatus(Enum):  # pylint: disable=too-few-public-methods
 
     OK = 200
     CREATED = 201
+    NO_CONTENT = 204
     UNAUTHORIZED = 401
     FORBIDDEN = 403
+    CONFLICT = 409

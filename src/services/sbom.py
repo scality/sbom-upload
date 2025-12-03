@@ -466,7 +466,10 @@ class SBOMService:
             )
 
             created_project = self.project_service.create_project(
-                project, auto_detect_latest=True
+                project,
+                auto_detect_latest=True,
+                delete_if_version_matches=self.project_service.delete_on_suffix_match,
+                delete_version_suffix_pattern=self.project_service.delete_suffix_pattern,
             )
             if not created_project:
                 return UploadResult.failure_result(

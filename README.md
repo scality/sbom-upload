@@ -123,6 +123,8 @@ pip install -r requirements.txt
 | `project-prefix` | ❌ | Prefix for project names | `ci-` |
 | `project-suffix` | ❌ | Suffix for project names | `-prod` |
 | `project-tags` | ❌ | Comma-separated tags | `production,ci-cd` |
+| `delete-on-version-suffix-match` | ❌ | Delete existing leaf project when version matches suffix pattern (default `false`) | `true` |
+| `delete-version-suffix-pattern` | ❌ | Case-insensitive regex evaluated against project version when delete is enabled (default `dev`) | `dev$` |
 
 *One of `project-sbom`, `project-sbom-list`, or `project-sbom-dir` is required.
 
