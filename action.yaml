@@ -158,10 +158,10 @@ outputs:
 
   latest-flags-updated:
     description: "Number of latest flags updated"
-  
+
   latest-versions:
     description: "List of projects where latest flag was updated"
-    
+
   upload-errors:
     description: "List of any upload errors encountered"
 
