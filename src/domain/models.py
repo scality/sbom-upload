@@ -95,6 +95,8 @@ class Project:  # pylint: disable=too-many-instance-attributes
     description: Optional[str] = None
     active: bool = True
     is_latest: bool = False
+    # Local-only field — not serialised to the DT API
+    parent_name: Optional[str] = None
 
     def to_api_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API calls."""
