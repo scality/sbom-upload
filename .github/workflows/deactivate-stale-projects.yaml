@@ -1,0 +1,47 @@
+name: Deactivate Stale Projects
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry run — report without making changes"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deactivate-stale
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deactivate-stale:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Deactivate stale projects
+        env:
+          INPUT_URL: ${{ vars.DEPENDENCY_TRACK_HOSTNAME }}
+          INPUT_API_KEY: ${{ secrets.DEPENDENCY_TRACK_APIKEY }}
+          INPUT_DRY_RUN: ${{ inputs.dry-run || 'false' }}
+        run: |
+          DRY_RUN_FLAG=""
+          if [ "$INPUT_DRY_RUN" = "true" ]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
+          PYTHONPATH=src python3 src/main.py deactivate-stale $DRY_RUN_FLAG

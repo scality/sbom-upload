@@ -146,6 +146,55 @@ export INPUT_DRY_RUN="true"
 PYTHONPATH=src python src/main.py upload
 ```
 
+## 🏷️ Auto-Tagging & Stale Project Maintenance
+
+Every project created or updated by this tool is automatically tagged with four
+canonical prefixed tags:
+
+| Tag | Value |
+|-----|-------|
+| `name:<n>` | `name.lower().replace("-","_")` |
+| `version:<v>` | `version.lower().replace("-","_")` (when set) |
+| `parent:<p>` | `parent_name.lower().replace("-","_")` (when set) |
+| `lifecycle:<token>` | First match of `alpha`, `beta`, `dev`, `preview`, `rc` in the version string, or `GA` |
+
+User-defined tags are always preserved; only the four managed prefixes are
+replaced on subsequent uploads.
+
+### Deactivate stale projects
+
+```bash
+# Preview — no changes made
+PYTHONPATH=src python3 src/main.py deactivate-stale --dry-run
+
+# Apply with a custom threshold (default: 15 days)
+PYTHONPATH=src python3 src/main.py deactivate-stale --days 30
+```
+
+Projects are **protected** from deactivation when they carry `lifecycle:GA` or
+`keep-active`, or when they have active children (checked via the DT API before
+every deactivation attempt, regardless of collection logic).
+A project that has never received a BOM (`lastBomImport` is null) is treated as
+infinitely stale and will be deactivated unless one of the above protections
+applies.
+
+A daily scheduled workflow (`.github/workflows/deactivate-stale-projects.yaml`,
+`0 2 * * *` UTC) runs this automatically.  Trigger it manually via
+`workflow_dispatch` with the `dry-run` input set to `true` for a safe preview.
+
+### Back-fill tags on existing projects
+
+```bash
+# Preview diff (default behaviour)
+PYTHONPATH=src python3 src/main.py retag-projects --dry-run
+
+# Apply
+PYTHONPATH=src python3 src/main.py retag-projects
+```
+
+The one-off remediation workflow (`.github/workflows/retag-projects.yaml`) is
+`workflow_dispatch`-only with `dry-run: true` as the safe default.
+
 ## 🤝 Contributing
 
 1. Fork the repository

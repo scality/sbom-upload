@@ -490,6 +490,195 @@ def _handle_action_upload(config_data: dict, output_file: str) -> None:
         raise click.ClickException("Hierarchy upload failed")
 
 
+@cli.command("deactivate-stale")
+@click.option(
+    "--days",
+    default=15,
+    show_default=True,
+    help="Inactivity threshold in days.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Report without making any changes.",
+)
+@with_services()
+def deactivate_stale(days: int, dry_run: bool, services: Services) -> None:
+    """Mark stale projects as inactive.
+
+    Pass 1 — leaf projects: deactivated when lastBomImport is older than
+    --days and not protected by lifecycle:GA or keep-active.
+
+    Pass 2 — collection parents: deactivated when they have no active
+    children, regardless of their own lastBomImport age.  lifecycle:GA and
+    keep-active still protect them.
+    """
+    import time
+    import datetime as _dt
+    from services.stale_projects import (
+        is_stale,
+        partition_by_collection,
+        build_summary,
+    )
+
+    now_ms = int(_dt.datetime.now(_dt.timezone.utc).timestamp() * 1000)
+    effective_dry_run = dry_run or services.connection_service.dry_run
+
+    click.echo(
+        f"Fetching active projects (threshold: {days} days, dry_run={effective_dry_run})..."
+    )
+    projects = services.project_service.list_projects(exclude_inactive=True)
+    click.echo(f"Found {len(projects)} active projects.")
+
+    leaves, parents = partition_by_collection(projects)
+
+    deactivated: list = []
+    skipped: list = []
+
+    # Pass 1: leaf projects — staleness check, then active-children guard
+    for project in leaves:
+        stale, reason = is_stale(project, now_ms, days)
+        if not stale:
+            skipped.append((project, reason))
+            continue
+
+        # A project may have children even with collectionLogic=NONE; DT
+        # returns 409 if we try to deactivate a parent with active children.
+        children = services.project_service.get_project_children(project["uuid"])
+        active_children = [c for c in children if c.get("active", True)]
+        if active_children:
+            skipped.append((project, "has_active_children"))
+            continue
+
+        ok = services.project_service.deactivate_project(project["uuid"])
+        if ok:
+            deactivated.append(project)
+        else:
+            skipped.append((project, "deactivation_failed"))
+        time.sleep(2)
+
+    # Pass 2: collection parents — deactivate when no active children remain,
+    # regardless of the parent's own lastBomImport age.
+    for project in parents:
+        tag_names = {t["name"] for t in project.get("tags", [])}
+        if "lifecycle:GA" in tag_names:
+            skipped.append((project, "lifecycle_GA"))
+            continue
+        if "keep-active" in tag_names:
+            skipped.append((project, "keep_active"))
+            continue
+
+        children = services.project_service.get_project_children(project["uuid"])
+        active_children = [c for c in children if c.get("active", True)]
+        if active_children:
+            skipped.append((project, "has_active_children"))
+            continue
+
+        ok = services.project_service.deactivate_project(project["uuid"])
+        if ok:
+            deactivated.append(project)
+        else:
+            skipped.append((project, "deactivation_failed"))
+        time.sleep(2)
+
+    summary = build_summary(deactivated, skipped, dry_run=effective_dry_run)
+    summary_json = json.dumps(summary, indent=2)
+    click.echo(summary_json)
+
+    github_step_summary = os.getenv("GITHUB_STEP_SUMMARY")
+    if github_step_summary:
+        with open(github_step_summary, "a", encoding="utf-8") as fh:
+            fh.write(f"## Stale Project Deactivation\n\n```json\n{summary_json}\n```\n")
+
+
+@cli.command("retag-projects")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Show what would change without applying it.",
+)
+@with_services()
+def retag_projects(dry_run: bool, services: Services) -> None:
+    """Back-fill canonical auto-tags on all projects.
+
+    Iterates every project (including inactive), computes the four managed
+    tags (name:, version:, parent:, lifecycle:), and PATCHes only those
+    whose tag set has actually changed.  User-defined tags are preserved.
+    Running this command twice in succession reports zero changes (idempotent).
+    """
+    import time
+    from services.tagging import compute_auto_tags, merge_auto_tags
+
+    effective_dry_run = dry_run or services.connection_service.dry_run
+
+    click.echo(
+        f"Fetching all projects including inactive (dry_run={effective_dry_run})..."
+    )
+    projects = services.project_service.list_projects(exclude_inactive=False)
+    click.echo(f"Found {len(projects)} projects.")
+
+    changed = 0
+    unchanged = 0
+
+    for project in projects:
+        name = project.get("name", "")
+        version = project.get("version")
+        parent_obj = project.get("parent") or {}
+        p_name = parent_obj.get("name")
+
+        # Follow-up GET when parent is referenced by UUID only
+        if parent_obj.get("uuid") and not p_name:
+            resp = services.connection_service.make_request(
+                method="GET", endpoint=f"/project/{parent_obj['uuid']}"
+            )
+            if resp and resp.status_code == 200:
+                try:
+                    p_name = resp.json().get("name")
+                except Exception:  # pylint: disable=broad-except
+                    pass
+
+        current_tags = [t["name"] for t in project.get("tags", [])]
+        desired_tags = merge_auto_tags(
+            current_tags, compute_auto_tags(name, version, p_name)
+        )
+
+        if set(current_tags) == set(desired_tags):
+            unchanged += 1
+            continue
+
+        click.echo(
+            f"  {name} ({version or 'no version'}): "
+            f"{current_tags} → {desired_tags}"
+        )
+        changed += 1
+
+        uuid = project.get("uuid")
+        if uuid:
+            # Fetch the full project payload and replace only the tags field,
+            # so that collectionLogic, classifier, description and other fields
+            # are not reset to DT defaults by a partial PATCH body.
+            full_resp = services.connection_service.make_request(
+                method="GET", endpoint=f"/project/{uuid}"
+            )
+            if full_resp and full_resp.status_code == 200:
+                try:
+                    full_payload = full_resp.json()
+                    full_payload["tags"] = [{"name": t} for t in desired_tags]
+                    services.connection_service.make_request(
+                        method="PATCH",
+                        endpoint=f"/project/{uuid}",
+                        json=full_payload,
+                    )
+                except Exception:  # pylint: disable=broad-except
+                    logger.warning("Failed to retag project %s", uuid)
+            time.sleep(2)
+
+    action = "Would update" if effective_dry_run else "Updated"
+    click.echo(f"\n{action} {changed} project(s), {unchanged} unchanged.")
+
+
 def _count_projects_in_hierarchy(config_data: dict) -> int:
     """
     Recursively count all projects in a hierarchy configuration.
