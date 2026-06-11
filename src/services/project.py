@@ -12,6 +12,7 @@ from domain.exceptions import (
 )
 from domain.models import Project, CollectionLogic
 from domain.version import is_latest_version, get_latest_version
+from services.tagging import compute_auto_tags, merge_auto_tags
 from services.connection import ConnectionService
 from services.response_handler import APIResponseHandler
 
@@ -56,6 +57,11 @@ class ProjectService:
             AuthenticationError: If authentication fails
         """
         logger.info("Creating/updating project: %s", project.name)
+
+        project.tags = merge_auto_tags(
+            project.tags,
+            compute_auto_tags(project.name, project.version, project.parent_name),
+        )
 
         delete_on_suffix = (
             delete_if_version_matches
@@ -699,6 +705,137 @@ class ProjectService:
             logger.debug("Failed to get parent version: %s", error)
 
         return None
+
+    def list_projects(self, exclude_inactive: bool = True) -> List[Dict[str, Any]]:
+        """Return all projects from Dependency Track using paginated requests.
+
+        Args:
+            exclude_inactive: When True only active projects are returned.
+
+        Returns:
+            Flat list of project dicts from the API.
+        """
+        all_projects: List[Dict[str, Any]] = []
+        page = 1
+        page_size = 100
+
+        while True:
+            params: Dict[str, Any] = {"pageSize": page_size, "page": page}
+            if exclude_inactive:
+                params["excludeInactive"] = "true"
+
+            response = self.connection.make_request(
+                method="GET", endpoint="/project", params=params
+            )
+
+            if not response or response.status_code != 200:
+                break
+
+            try:
+                batch = response.json()
+            except Exception:  # pylint: disable=broad-except
+                break
+
+            if not isinstance(batch, list) or not batch:
+                break
+
+            all_projects.extend(batch)
+
+            # Stop when we have received everything reported by the server
+            total_header = response.headers.get("X-Total-Count")
+            if total_header and len(all_projects) >= int(total_header):
+                break
+
+            if len(batch) < page_size:
+                break
+
+            page += 1
+
+        return all_projects
+
+    def get_project_children(self, uuid: str) -> List[Dict[str, Any]]:
+        """Return the direct children of a project.
+
+        Args:
+            uuid: Project UUID.
+
+        Returns:
+            List of child project dicts, or an empty list on error.
+        """
+        response = self.connection.make_request(
+            method="GET", endpoint=f"/project/{uuid}/children"
+        )
+        if response and response.status_code == 200:
+            try:
+                return response.json()
+            except Exception:  # pylint: disable=broad-except
+                pass
+        return []
+
+    def deactivate_project(self, uuid: str) -> bool:
+        """Mark a project as inactive via PATCH.
+
+        Fetches the full project payload first so DT's PATCH endpoint receives
+        a complete object (partial-body PATCHes return 409 in most DT versions).
+        Honors dry-run mode.
+
+        Args:
+            uuid: Project UUID to deactivate.
+
+        Returns:
+            True when the project was (or would be) deactivated, False on error.
+        """
+        if self.connection.dry_run:
+            logger.info("[DRY RUN] Would deactivate project %s", uuid)
+            return True
+
+        # Fetch the current project data so we can send a complete PATCH body
+        get_response = self.connection.make_request(
+            method="GET", endpoint=f"/project/{uuid}"
+        )
+        if not get_response or get_response.status_code != HTTPStatus.OK.value:
+            logger.warning(
+                "Could not fetch project %s before deactivation (status %s)",
+                uuid,
+                get_response.status_code if get_response else "no response",
+            )
+            return False
+
+        try:
+            project_data = get_response.json()
+        except Exception:  # pylint: disable=broad-except
+            logger.warning("Could not parse project %s response", uuid)
+            return False
+
+        project_data["active"] = False
+
+        patch_response = self.connection.make_request(
+            method="PATCH",
+            endpoint=f"/project/{uuid}",
+            json=project_data,
+        )
+
+        if patch_response is None:
+            return True
+
+        if patch_response.status_code == HTTPStatus.OK.value:
+            logger.info("Deactivated project %s", uuid)
+            return True
+
+        if patch_response.status_code == HTTPStatus.CONFLICT.value:
+            logger.warning(
+                "409 conflict deactivating project %s — "
+                "project likely has active children; skipping",
+                uuid,
+            )
+            return False
+
+        logger.warning(
+            "Unexpected status %s deactivating project %s",
+            patch_response.status_code,
+            uuid,
+        )
+        return False
 
     def _remove_latest_flag(self, project_uuid: str) -> None:
         """

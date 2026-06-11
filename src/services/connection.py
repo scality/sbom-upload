@@ -94,9 +94,13 @@ class ConnectionService:
             APIConnectionError: If the request fails
             AuthenticationError: If authentication fails
         """
-        logger.debug("make_request called: method=%s, endpoint=%s, dry_run=%s", 
-                    method, endpoint, self.dry_run)
-        if self.dry_run and method.upper() in ["POST", "PUT", "DELETE"]:
+        logger.debug(
+            "make_request called: method=%s, endpoint=%s, dry_run=%s",
+            method,
+            endpoint,
+            self.dry_run,
+        )
+        if self.dry_run and method.upper() in ["POST", "PUT", "PATCH", "DELETE"]:
             logger.info("[DRY RUN] Would %s to %s", method.upper(), endpoint)
             return None
 
@@ -111,10 +115,15 @@ class ConnectionService:
         try:
             # Use tuple form of timeout: (connect_timeout, read_timeout)
             # This ensures both connection and data reading have proper timeouts
-            timeout_tuple = (30, self.timeout)  # 30s to connect, configured timeout to read
+            timeout_tuple = (
+                30,
+                self.timeout,
+            )  # 30s to connect, configured timeout to read
             logger.debug(
                 "Making %s request to %s with timeout: connect=30s, read=%ss",
-                method, endpoint, self.timeout
+                method,
+                endpoint,
+                self.timeout,
             )
             response = requests.request(
                 method=method, url=url, headers=headers, timeout=timeout_tuple, **kwargs
@@ -126,8 +135,11 @@ class ConnectionService:
             if response.status_code == HTTPStatus.FORBIDDEN:
                 raise AuthenticationError("API access forbidden")
 
-            logger.debug("Request successful: status=%s, endpoint=%s", 
-                        response.status_code, endpoint)
+            logger.debug(
+                "Request successful: status=%s, endpoint=%s",
+                response.status_code,
+                endpoint,
+            )
             return response
 
         except (  # pylint: disable=try-except-raise

@@ -314,6 +314,7 @@ class SBOMService:
                         name=child_project_name,
                         version=metadata.version,
                         parent_uuid=created_parent.uuid,
+                        parent_name=parent_name,
                     )
 
                     created_child = self.project_service.create_project(
@@ -432,7 +433,11 @@ class SBOMService:
             return UploadResult.failure_result(str(error))
 
     def _process_hierarchy_project(
-        self, project_name: str, project_config: Dict[str, Any], parent_uuid: str = None
+        self,
+        project_name: str,
+        project_config: Dict[str, Any],
+        parent_uuid: str = None,
+        parent_name: Optional[str] = None,
     ) -> UploadResult:
         """
         Process a single project in the hierarchy configuration.
@@ -463,6 +468,7 @@ class SBOMService:
                 parent_uuid=parent_uuid,
                 tags=hierarchy_config.tags,
                 is_latest=hierarchy_config.is_latest,
+                parent_name=parent_name,
             )
 
             created_project = self.project_service.create_project(
@@ -499,7 +505,10 @@ class SBOMService:
                 child_name = child_config.get("name")
                 if child_name:
                     child_result = self._process_hierarchy_project(
-                        child_name, child_config, created_project.uuid
+                        child_name,
+                        child_config,
+                        created_project.uuid,
+                        parent_name=project_name,
                     )
                     if not child_result.success:
                         logger.error("Failed to process child project: %s", child_name)
