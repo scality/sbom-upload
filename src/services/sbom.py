@@ -337,7 +337,11 @@ class SBOMService:
                         successful_uploads += 1
                         continue
 
-                    logger.error("Failed to upload SBOM: %s", sbom_path.name)
+                    logger.error(
+                        "Failed to upload SBOM: %s: %s",
+                        sbom_path.name,
+                        upload_result.message,
+                    )
                     failed_uploads += 1
 
                 except (
