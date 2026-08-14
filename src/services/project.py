@@ -332,10 +332,11 @@ class ProjectService:
                 response, success_status=HTTPStatus.OK, operation="Project update"
             )
             logger.info("Project updated: %s", project.uuid)
-        except APIConnectionError:
+        except APIConnectionError as error:
             logger.warning(
-                "Failed to update project %s: API error occurred",
+                "Failed to update project %s: %s",
                 project.name,
+                error,
             )
             # Continue anyway since the project exists
 
@@ -372,18 +373,20 @@ class ProjectService:
                            project.get("name"), project.get("uuid"))
                 return project
             return None
-        except APIConnectionError:
-            logger.debug("Project lookup failed, falling back to list endpoint")
+        except APIConnectionError as error:
+            logger.debug("Project lookup failed (%s), falling back to list endpoint", error)
             # Fall back to listing all projects if lookup fails
             pass
-        
-        # Fallback: list all projects (with pagination)
-        response = self.connection.make_request(method="GET", endpoint="/project")
 
+        # Fallback: list every project, page by page.
+        #
+        # This used to be a bare `GET /project`. Under v4 that returned the whole
+        # portfolio because the server ignored the pagination parameters; v5
+        # applies them and caps the page at 100, so a bare call silently searched
+        # the first 100 projects of several thousand and reported everything else
+        # as missing.
         try:
-            projects = APIResponseHandler.handle_response(
-                response, success_status=HTTPStatus.OK, operation="Get projects"
-            )
+            projects = self.list_projects(exclude_inactive=False)
             if not projects:
                 return None
 
@@ -409,8 +412,8 @@ class ProjectService:
 
             logger.debug("No matching project found")
             return None
-        except APIConnectionError:
-            logger.warning("Failed to retrieve projects for lookup")
+        except APIConnectionError as error:
+            logger.warning("Failed to retrieve projects for lookup: %s", error)
             return None
 
     def get_project_hierarchy(
@@ -720,7 +723,12 @@ class ProjectService:
         page_size = 100
 
         while True:
-            params: Dict[str, Any] = {"pageSize": page_size, "page": page}
+            # `pageNumber` is the parameter Dependency-Track actually reads. v4
+            # ignored pagination entirely so the misspelled `page` was harmless
+            # there; v5 applies it, and the wrong name pinned every request to
+            # page 1 — the same 100 projects fetched over and over until the
+            # X-Total-Count check happened to stop the loop.
+            params: Dict[str, Any] = {"pageSize": page_size, "pageNumber": page}
             if exclude_inactive:
                 params["excludeInactive"] = "true"
 
